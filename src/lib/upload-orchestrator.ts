@@ -259,6 +259,8 @@ async function uploadFile(file: UploadFile) {
         if (cl) {
           effectiveSize = parseInt(cl, 10);
           store.updateFileProgress(file.id, { size: effectiveSize });
+          // Re-read file so downstream functions see the updated size
+          file = useUploadStore.getState().files.get(file.id) ?? file;
         }
       } catch (err) {
         if (signal.aborted) throw new Error("Cancelled by user");
