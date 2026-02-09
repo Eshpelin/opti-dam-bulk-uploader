@@ -96,7 +96,25 @@ async function uploadFile(file: UploadFile) {
   try {
     let key: string;
 
-    if (file.size > 0 && file.size < MULTIPART_THRESHOLD) {
+    // Determine effective file size (probe URL if unknown)
+    let effectiveSize = file.size;
+    if (effectiveSize === 0 && file.source === "url") {
+      try {
+        const headRes = await fetch(file.sourcePath, { method: "HEAD" });
+        const cl = headRes.headers.get("content-length");
+        if (cl) {
+          effectiveSize = parseInt(cl, 10);
+          store.updateFileProgress(file.id, { size: effectiveSize });
+        }
+      } catch {
+        // HEAD failed, proceed with standard upload as fallback
+      }
+    }
+
+    if (effectiveSize > 0 && effectiveSize < MULTIPART_THRESHOLD) {
+      key = await doStandardUpload(file);
+    } else if (effectiveSize === 0) {
+      // Size still unknown: use standard upload and let the backend handle it
       key = await doStandardUpload(file);
     } else {
       key = await doMultipartUpload(file);
@@ -124,6 +142,10 @@ async function uploadFile(file: UploadFile) {
 
     const assetData = await assetResponse.json();
 
+    if (!assetData.id) {
+      throw new Error("Asset created but no ID returned from CMP");
+    }
+
     store.setFileStatus(file.id, "completed", {
       assetId: assetData.id,
       progress: 100,
@@ -141,29 +163,36 @@ async function uploadFile(file: UploadFile) {
 async function doStandardUpload(file: UploadFile): Promise<string> {
   const store = useUploadStore.getState();
 
-  const formData = new FormData();
+  store.updateFileProgress(file.id, { progress: 30 });
+
+  let response: Response;
 
   if (file.source === "local" && file.browserFile) {
+    // Browser file: send as FormData
+    const formData = new FormData();
     formData.append("file", file.browserFile);
     formData.append("fileName", file.name);
+    response = await fetch("/api/upload-standard", {
+      method: "POST",
+      body: formData,
+    });
   } else if (file.source === "path") {
-    // For path-based files, we need to read from filesystem
-    // Send the path to a different endpoint
-    const response = await fetch("/api/upload-url");
-    if (!response.ok) throw new Error("Failed to get upload URL");
-    // Actually, for path-based standard uploads, the backend handles everything
-    // Let's use the standard endpoint with the file content
-    formData.append("fileName", file.name);
-    // We need to read the file from path on the backend side
-    // This case is rare (file < 5MB from path input), just handle via backend
+    // Path file: backend reads from filesystem
+    response = await fetch("/api/upload-standard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filePath: file.sourcePath, fileName: file.name }),
+    });
+  } else if (file.source === "url") {
+    // URL file: backend downloads and uploads
+    response = await fetch("/api/upload-standard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileUrl: file.sourcePath, fileName: file.name }),
+    });
+  } else {
+    throw new Error(`Unsupported source type: ${file.source}`);
   }
-
-  store.updateFileProgress(file.id, { progress: 50 });
-
-  const response = await fetch("/api/upload-standard", {
-    method: "POST",
-    body: formData,
-  });
 
   if (!response.ok) {
     const errData = await response.json();

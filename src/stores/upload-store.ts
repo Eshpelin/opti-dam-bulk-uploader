@@ -65,6 +65,7 @@ interface UploadStore {
         | "status"
         | "progress"
         | "bytesUploaded"
+        | "size"
         | "speed"
         | "eta"
         | "completedChunks"
