@@ -181,6 +181,24 @@ export function DropZone() {
 
   return (
     <div className="space-y-2">
+      {/* Hidden inputs live outside the drop zone so .click() does not bubble into it */}
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) handleFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        className="hidden"
+        {...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+        onChange={handleFolderSelect}
+      />
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -196,23 +214,6 @@ export function DropZone() {
           }
         `}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files) handleFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-        <input
-          ref={folderInputRef}
-          type="file"
-          className="hidden"
-          {...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-          onChange={handleFolderSelect}
-        />
         <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
         <p className="text-sm font-medium">
           Drag and drop files or folders here, or click to browse files
@@ -225,10 +226,7 @@ export function DropZone() {
         variant="outline"
         size="sm"
         className="w-full"
-        onClick={(e) => {
-          e.stopPropagation();
-          folderInputRef.current?.click();
-        }}
+        onClick={() => folderInputRef.current?.click()}
       >
         <FolderOpen className="h-4 w-4 mr-2" />
         Or choose a folder
