@@ -1,5 +1,7 @@
 # CMP DAM Bulk Uploader
 
+> **Not an official Optimizely product.** This is an independent tool, entirely vibe coded with love using [Claude Code](https://claude.ai/claude-code). Use at your own discretion.
+
 A local web application for uploading files in bulk to the Optimizely CMP (Content Marketing Platform) Digital Asset Manager. Built to handle everything from small images to massive video files up to 5 TB, with multipart chunked uploads, automatic retry logic, real-time progress tracking, and intelligent rate limiting.
 
 ![CMP DAM Bulk Uploader](docs/screenshot.png)
