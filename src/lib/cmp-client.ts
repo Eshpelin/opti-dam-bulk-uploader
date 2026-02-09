@@ -235,6 +235,7 @@ interface UserApiItem {
   first_name: string;
   last_name: string;
   full_name: string;
+  email: string;
   image_url: string | null;
 }
 
@@ -256,8 +257,8 @@ export async function listUsers(
   return parseJsonResponse<UserListResponse>(response);
 }
 
-export async function getAllUsers(): Promise<Array<{ id: string; fullName: string }>> {
-  const all: Array<{ id: string; fullName: string }> = [];
+export async function getAllUsers(): Promise<Array<{ id: string; fullName: string; email: string }>> {
+  const all: Array<{ id: string; fullName: string; email: string }> = [];
   let offset = 0;
   const pageSize = 100;
 
@@ -268,6 +269,7 @@ export async function getAllUsers(): Promise<Array<{ id: string; fullName: strin
       all.push({
         id: u.id,
         fullName: u.full_name,
+        email: u.email ?? "",
       });
     }
 

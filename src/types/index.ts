@@ -5,6 +5,7 @@ export type FileSource = "local" | "url" | "path";
 export interface CmpUser {
   id: string;
   fullName: string;
+  email: string;
 }
 
 /** CMP team from GET /v3/teams */

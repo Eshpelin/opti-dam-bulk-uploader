@@ -43,7 +43,8 @@ export function FolderSelector({ value, onChange, compact }: FolderSelectorProps
       .filter(
         (f) =>
           f.name.toLowerCase().includes(term) ||
-          f.breadcrumb.toLowerCase().includes(term)
+          f.breadcrumb.toLowerCase().includes(term) ||
+          f.id.toLowerCase().includes(term)
       )
       .slice(0, 50);
   }, [folders, search]);
@@ -62,7 +63,7 @@ export function FolderSelector({ value, onChange, compact }: FolderSelectorProps
   const dropdownContent = (
     <>
       <Input
-        placeholder="Search folders..."
+        placeholder="Search by name or ID..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="mb-2 h-8 text-xs"

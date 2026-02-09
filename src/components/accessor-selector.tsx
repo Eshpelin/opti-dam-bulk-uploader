@@ -57,13 +57,26 @@ export function AccessorSelector({
   const filteredTeams = useMemo(() => {
     if (!search.trim()) return teams.slice(0, 25);
     const term = search.toLowerCase();
-    return teams.filter((t) => t.name.toLowerCase().includes(term)).slice(0, 25);
+    return teams
+      .filter(
+        (t) =>
+          t.name.toLowerCase().includes(term) ||
+          t.id.toLowerCase().includes(term)
+      )
+      .slice(0, 25);
   }, [teams, search]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users.slice(0, 25);
     const term = search.toLowerCase();
-    return users.filter((u) => u.fullName.toLowerCase().includes(term)).slice(0, 25);
+    return users
+      .filter(
+        (u) =>
+          u.fullName.toLowerCase().includes(term) ||
+          u.email.toLowerCase().includes(term) ||
+          u.id.toLowerCase().includes(term)
+      )
+      .slice(0, 25);
   }, [users, search]);
 
   const loading = usersLoading || teamsLoading;
@@ -80,7 +93,7 @@ export function AccessorSelector({
   const dropdownContent = (
     <>
       <Input
-        placeholder="Search users and teams..."
+        placeholder="Search by name, email, or ID..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="mb-2 h-8 text-xs"

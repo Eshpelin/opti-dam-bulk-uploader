@@ -15,9 +15,10 @@ export async function fetchAndStoreUsers() {
     .then(async (res) => {
       if (!res.ok) return;
       const data = await res.json();
-      const mapped = data.users.map((u: { id: string; fullName: string }) => ({
+      const mapped = data.users.map((u: { id: string; fullName: string; email: string }) => ({
         id: u.id,
         fullName: u.fullName,
+        email: u.email ?? "",
       }));
       store.setUsers(mapped);
       store.addLog("info", `Loaded ${mapped.length} users`);
