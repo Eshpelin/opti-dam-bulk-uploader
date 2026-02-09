@@ -87,8 +87,10 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
     if (response.status === 401) {
       throw new AuthError("Unauthorized. Token may have expired.", body);
     }
+    // Include the response body in the message so it propagates through proxy routes
+    const detail = body.length > 300 ? body.slice(0, 300) + "..." : body;
     throw new CmpApiError(
-      `CMP API error (${response.status})`,
+      `CMP API error (${response.status}): ${detail}`,
       response.status,
       body
     );

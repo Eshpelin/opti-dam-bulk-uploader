@@ -169,7 +169,7 @@ async function uploadFile(file: UploadFile) {
 
     if (!assetResponse.ok) {
       const errData = await assetResponse.json();
-      throw new Error(errData.error || `Asset creation failed (${assetResponse.status})`);
+      throw new Error(`Asset registration failed: ${errData.error || assetResponse.status}`);
     }
 
     const assetData = await assetResponse.json();
@@ -236,7 +236,7 @@ async function doStandardUpload(file: UploadFile, signal: AbortSignal): Promise<
 
   if (!response.ok) {
     const errData = await response.json();
-    throw new Error(errData.error || `Standard upload failed (${response.status})`);
+    throw new Error(`Standard upload failed: ${errData.error || response.status}`);
   }
 
   store.updateFileProgress(file.id, { progress: 90 });
@@ -274,7 +274,7 @@ async function doMultipartUpload(file: UploadFile, signal: AbortSignal): Promise
 
   if (!initResponse.ok) {
     const errData = await initResponse.json();
-    throw new Error(errData.error || "Failed to initiate multipart upload");
+    throw new Error(`Multipart initiation failed: ${errData.error || initResponse.status}`);
   }
 
   const initData: MultipartUploadResponse = await initResponse.json();
@@ -304,7 +304,7 @@ async function doMultipartUpload(file: UploadFile, signal: AbortSignal): Promise
 
   if (!completeResponse.ok) {
     const errData = await completeResponse.json();
-    throw new Error(errData.error || "Failed to complete upload");
+    throw new Error(`Multipart complete failed: ${errData.error || completeResponse.status}`);
   }
 
   const completeData = await completeResponse.json();
@@ -359,7 +359,7 @@ async function uploadChunksFromBrowser(
 
           if (!response.ok) {
             const errData = await response.json();
-            throw new Error(errData.error || `Chunk ${index} failed`);
+            throw new Error(`Chunk ${index + 1} upload failed: ${errData.error || response.status}`);
           }
 
           completedChunks++;
@@ -496,7 +496,8 @@ async function pollForCompletion(
     if (signal.aborted) throw new Error("Cancelled by user");
     const response = await fetch(`/api/multipart-uploads/${uploadId}/status`, { signal });
     if (!response.ok) {
-      throw new Error(`Failed to get upload status (${response.status})`);
+      const errBody = await response.text().catch(() => "");
+      throw new Error(`Status poll failed (${response.status}): ${errBody}`);
     }
 
     const data = await response.json();
