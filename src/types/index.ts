@@ -100,6 +100,7 @@ export interface ReportRow {
   fileSizeBytes: number;
   status: "success" | "failed";
   assetId: string;
+  folder: string;
   errorMessage: string;
   completedAt: string; // ISO 8601
 }

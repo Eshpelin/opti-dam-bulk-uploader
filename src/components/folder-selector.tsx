@@ -4,6 +4,11 @@ import { useState, useMemo } from "react";
 import { useUploadStore } from "@/stores/upload-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { FolderOpen, Loader2, X } from "lucide-react";
 
 interface FolderSelectorProps {
@@ -16,7 +21,7 @@ interface FolderSelectorProps {
 }
 
 export function FolderSelector({ value, onChange, compact }: FolderSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const folders = useUploadStore((s) => s.folders);
   const foldersLoading = useUploadStore((s) => s.foldersLoading);
@@ -54,83 +59,88 @@ export function FolderSelector({ value, onChange, compact }: FolderSelectorProps
 
   const label = selectedFolder ? selectedFolder.breadcrumb : "Root";
 
-  return (
-    <div className="relative">
-      <div className="flex items-center gap-1.5">
-        {!compact && <FolderOpen className="h-4 w-4 text-muted-foreground" />}
-        {!compact && <span className="text-sm text-muted-foreground">Default folder:</span>}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsOpen(!isOpen)}
-          className={compact ? "h-5 text-[10px] px-1.5 font-normal" : "h-7 text-xs"}
+  const dropdownContent = (
+    <>
+      <Input
+        placeholder="Search folders..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="mb-2 h-8 text-xs"
+        autoFocus
+      />
+      <div className="max-h-48 overflow-y-auto">
+        <button
+          onClick={() => {
+            setSelectedFolderId(null);
+            setOpen(false);
+            setSearch("");
+          }}
+          className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent ${
+            !selectedFolderId ? "bg-accent" : ""
+          }`}
         >
-          {compact ? (
-            <span className="flex items-center gap-1">
-              <FolderOpen className="h-2.5 w-2.5" />
-              <span className="max-w-[100px] truncate">{label}</span>
-            </span>
-          ) : (
-            label === "Root" ? "Root (default)" : label
-          )}
-        </Button>
-        {selectedFolderId && !compact && (
+          Root (default)
+        </button>
+        {filtered.map((folder) => (
           <button
-            onClick={() => setSelectedFolderId(null)}
-            className="text-muted-foreground hover:text-foreground"
+            key={folder.id}
+            onClick={() => {
+              setSelectedFolderId(folder.id);
+              setOpen(false);
+              setSearch("");
+            }}
+            className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent truncate ${
+              selectedFolderId === folder.id ? "bg-accent" : ""
+            }`}
+            title={folder.breadcrumb}
           >
-            <X className="h-3 w-3" />
+            {folder.breadcrumb}
           </button>
+        ))}
+        {filtered.length === 0 && (
+          <div className="text-xs text-muted-foreground p-2">
+            No folders found
+          </div>
         )}
       </div>
+    </>
+  );
 
-      {isOpen && (
-        <div className={`absolute top-full mt-1 bg-popover border rounded-md shadow-lg z-50 p-2 ${
-          compact ? "right-0 w-72" : "left-0 w-96"
-        }`}>
-          <Input
-            placeholder="Search folders..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="mb-2 h-8 text-xs"
-            autoFocus
-          />
-          <div className="max-h-48 overflow-y-auto">
-            <button
-              onClick={() => {
-                setSelectedFolderId(null);
-                setIsOpen(false);
-                setSearch("");
-              }}
-              className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent ${
-                !selectedFolderId ? "bg-accent" : ""
-              }`}
-            >
-              Root (default)
-            </button>
-            {filtered.map((folder) => (
-              <button
-                key={folder.id}
-                onClick={() => {
-                  setSelectedFolderId(folder.id);
-                  setIsOpen(false);
-                  setSearch("");
-                }}
-                className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent truncate ${
-                  selectedFolderId === folder.id ? "bg-accent" : ""
-                }`}
-                title={folder.breadcrumb}
-              >
-                {folder.breadcrumb}
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <div className="text-xs text-muted-foreground p-2">
-                No folders found
-              </div>
+  return (
+    <div className="flex items-center gap-1.5">
+      {!compact && <FolderOpen className="h-4 w-4 text-muted-foreground" />}
+      {!compact && <span className="text-sm text-muted-foreground">Default folder:</span>}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={compact ? "h-5 text-[10px] px-1.5 font-normal" : "h-7 text-xs"}
+          >
+            {compact ? (
+              <span className="flex items-center gap-1">
+                <FolderOpen className="h-2.5 w-2.5" />
+                <span className="max-w-[100px] truncate">{label}</span>
+              </span>
+            ) : (
+              label === "Root" ? "Root (default)" : label
             )}
-          </div>
-        </div>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align={compact ? "end" : "start"}
+          className={compact ? "w-72" : "w-96"}
+        >
+          {dropdownContent}
+        </PopoverContent>
+      </Popover>
+      {selectedFolderId && !compact && (
+        <button
+          onClick={() => setSelectedFolderId(null)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3 w-3" />
+        </button>
       )}
     </div>
   );

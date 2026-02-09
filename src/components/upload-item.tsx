@@ -42,6 +42,7 @@ export function UploadItem({ file }: Props) {
   const removeFile = useUploadStore((s) => s.removeFile);
   const retryFile = useUploadStore((s) => s.retryFile);
   const setFileFolderId = useUploadStore((s) => s.setFileFolderId);
+  const folders = useUploadStore((s) => s.folders);
 
   const config = statusConfig[file.status];
   const canRemove = file.status === "queued" || file.status === "failed" || file.status === "completed";
@@ -71,12 +72,21 @@ export function UploadItem({ file }: Props) {
           <span className="text-xs text-muted-foreground shrink-0">
             {file.size > 0 ? formatBytes(file.size) : "Size unknown"}
           </span>
-          {file.status === "queued" && (
+          {file.status === "queued" ? (
             <FolderSelector
               value={file.folderId}
               onChange={(folderId) => setFileFolderId(file.id, folderId)}
               compact
             />
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <FolderOpen className="h-2.5 w-2.5" />
+              <span className="max-w-[100px] truncate">
+                {file.folderId
+                  ? (folders.find((f) => f.id === file.folderId)?.breadcrumb ?? "Unknown")
+                  : "Root"}
+              </span>
+            </span>
           )}
         </div>
 

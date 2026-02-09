@@ -26,6 +26,7 @@ import { useState } from "react";
 export function ResultsTable() {
   const fileOrder = useUploadStore((s) => s.fileOrder);
   const files = useUploadStore((s) => s.files);
+  const folders = useUploadStore((s) => s.folders);
 
   const results = useMemo(() => {
     const items: UploadFile[] = [];
@@ -50,6 +51,11 @@ export function ResultsTable() {
 
   if (results.length === 0) return null;
 
+  const getFolderLabel = (folderId: string | null) => {
+    if (!folderId) return "Root";
+    return folders.find((f) => f.id === folderId)?.breadcrumb ?? "Unknown";
+  };
+
   const handleExportCsv = () => {
     const rows: ReportRow[] = results.map((f) => ({
       filename: f.name,
@@ -58,6 +64,7 @@ export function ResultsTable() {
       fileSizeBytes: f.size,
       status: f.status === "completed" ? "success" : "failed",
       assetId: f.assetId || "",
+      folder: getFolderLabel(f.folderId),
       errorMessage: f.error || "",
       completedAt: f.completedAt
         ? new Date(f.completedAt).toISOString()
@@ -65,7 +72,7 @@ export function ResultsTable() {
     }));
 
     const header =
-      "filename,source,source_path,file_size_bytes,status,asset_id,error_message,completed_at";
+      "filename,source,source_path,file_size_bytes,status,asset_id,folder,error_message,completed_at";
     const csvRows = rows.map((r) =>
       [
         csvEscape(r.filename),
@@ -74,6 +81,7 @@ export function ResultsTable() {
         r.fileSizeBytes,
         r.status,
         r.assetId,
+        csvEscape(r.folder),
         csvEscape(r.errorMessage),
         r.completedAt,
       ].join(",")
@@ -113,6 +121,7 @@ export function ResultsTable() {
               <TableHead className="text-xs w-[60px]">Source</TableHead>
               <TableHead className="text-xs w-[80px]">Size</TableHead>
               <TableHead className="text-xs w-[70px]">Status</TableHead>
+              <TableHead className="text-xs w-[120px]">Folder</TableHead>
               <TableHead className="text-xs w-[180px]">Asset ID</TableHead>
               <TableHead className="text-xs">Error</TableHead>
               <TableHead className="text-xs w-[80px]">Time</TableHead>
@@ -120,7 +129,7 @@ export function ResultsTable() {
           </TableHeader>
           <TableBody>
             {results.map((file) => (
-              <ResultRow key={file.id} file={file} />
+              <ResultRow key={file.id} file={file} folderLabel={getFolderLabel(file.folderId)} />
             ))}
           </TableBody>
         </Table>
@@ -129,7 +138,7 @@ export function ResultsTable() {
   );
 }
 
-function ResultRow({ file }: { file: UploadFile }) {
+function ResultRow({ file, folderLabel }: { file: UploadFile; folderLabel: string }) {
   const [copied, setCopied] = useState(false);
 
   const copyAssetId = () => {
@@ -165,6 +174,9 @@ function ResultRow({ file }: { file: UploadFile }) {
         >
           {file.status === "completed" ? "Success" : "Failed"}
         </Badge>
+      </TableCell>
+      <TableCell className="text-xs truncate max-w-[120px]" title={folderLabel}>
+        {folderLabel}
       </TableCell>
       <TableCell className="text-xs font-mono">
         {file.assetId ? (
