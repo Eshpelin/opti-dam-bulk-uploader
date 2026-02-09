@@ -136,9 +136,26 @@ export function AuthForm() {
               )}
             </Button>
 
-            <p className="text-xs text-muted-foreground text-center">
-              Credentials are stored in memory only and never saved to disk
-            </p>
+            <div className="text-xs text-muted-foreground text-center space-y-1.5">
+              <p>
+                Credentials are stored in memory only and never saved to disk.
+              </p>
+              <p>
+                You can create app credentials in{" "}
+                <a
+                  href="https://cmp.optimizely.com/cloud/settings/apps-and-webhooks/apps/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-foreground"
+                >
+                  CMP Settings &gt; Apps &amp; Webhooks
+                </a>.
+              </p>
+              <p className="text-amber-500">
+                Use a dedicated burner app credential and rotate the secret
+                immediately after you finish.
+              </p>
+            </div>
           </form>
         </CardContent>
       </Card>

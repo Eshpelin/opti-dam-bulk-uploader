@@ -72,7 +72,7 @@ export function UploadItem({ file }: Props) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="text-sm truncate block max-w-[200px]">
-                  {file.name}
+                  {file.relativePath ? `${file.relativePath}/${file.name}` : file.name}
                 </span>
               </TooltipTrigger>
               <TooltipContent>

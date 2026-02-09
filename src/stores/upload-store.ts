@@ -62,6 +62,7 @@ interface UploadStore {
       source: FileSource;
       sourcePath: string;
       browserFile?: File | null;
+      relativePath?: string | null;
     }>
   ) => void;
   removeFile: (id: string) => void;
@@ -136,7 +137,8 @@ function makeEmptyFile(
   size: number,
   source: FileSource,
   sourcePath: string,
-  browserFile?: File | null
+  browserFile?: File | null,
+  relativePath?: string | null
 ): UploadFile {
   return {
     id: uuidv4(),
@@ -159,6 +161,7 @@ function makeEmptyFile(
     completedAt: null,
     browserFile: browserFile ?? null,
     folderId: null,
+    relativePath: relativePath ?? null,
     accessorId: null,
     accessorType: null,
     accessType: "view",
@@ -205,7 +208,8 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
           item.size,
           item.source,
           item.sourcePath,
-          item.browserFile
+          item.browserFile,
+          item.relativePath
         );
         // Inherit the current defaults
         file.folderId = state.selectedFolderId;

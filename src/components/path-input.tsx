@@ -54,6 +54,7 @@ export function PathInput() {
       size: f.size,
       source: "path" as const,
       sourcePath: f.path,
+      relativePath: f.relativePath ?? undefined,
     }));
 
     addFiles(items);
@@ -107,7 +108,9 @@ export function PathInput() {
                 key={f.path}
                 className="text-xs font-mono flex justify-between"
               >
-                <span className="truncate mr-2">{f.name}</span>
+                <span className="truncate mr-2">
+                  {f.relativePath ? `${f.relativePath}/${f.name}` : f.name}
+                </span>
                 <span className="text-muted-foreground shrink-0">
                   {formatSize(f.size)}
                 </span>

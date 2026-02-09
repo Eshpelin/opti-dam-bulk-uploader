@@ -11,6 +11,7 @@ import type {
   MultipartStatusResponse,
   CreateAssetResponse,
   CompleteUploadResponse,
+  CreateFolderResponse,
   AccessorType,
   AccessType,
 } from "@/types";
@@ -226,6 +227,23 @@ export async function getAllFolders(): Promise<FlatFolder[]> {
   }
 
   return all;
+}
+
+export async function createFolder(
+  name: string,
+  parentFolderId: string | null
+): Promise<CreateFolderResponse> {
+  const body: Record<string, string> = { name };
+  if (parentFolderId) {
+    body.parent_folder_id = parentFolderId;
+  }
+
+  const response = await cmpFetch("/v3/folders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseJsonResponse<CreateFolderResponse>(response);
 }
 
 // ─── Users & Teams ──────────────────────────────────────────

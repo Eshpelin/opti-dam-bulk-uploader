@@ -51,6 +51,7 @@ export interface UploadFile {
   completedAt: number | null; // Unix ms
   browserFile: File | null; // present only for drag-and-drop files
   folderId: string | null; // target CMP folder (null = root)
+  relativePath: string | null; // relative dir path from dropped/scanned root, e.g. "Campaign/social"
   accessorId: string | null; // user or team ID for permissions
   accessorType: AccessorType | null; // "user" or "team"
   accessType: AccessType; // "view" or "edit"
@@ -134,4 +135,12 @@ export interface ScannedFile {
   name: string;
   path: string;
   size: number;
+  relativePath: string | null;
+}
+
+/** Response from POST /v3/folders */
+export interface CreateFolderResponse {
+  id: string;
+  name: string;
+  parent_folder_id: string | null;
 }

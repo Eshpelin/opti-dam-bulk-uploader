@@ -6,9 +6,10 @@ interface FileEntry {
   name: string;
   path: string;
   size: number;
+  relativePath: string | null;
 }
 
-function scanDir(dirPath: string, results: FileEntry[]): void {
+function scanDir(dirPath: string, rootPath: string, results: FileEntry[]): void {
   const entries = readdirSync(dirPath, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -18,14 +19,17 @@ function scanDir(dirPath: string, results: FileEntry[]): void {
     if (entry.name.startsWith(".")) continue;
 
     if (entry.isDirectory()) {
-      scanDir(fullPath, results);
+      scanDir(fullPath, rootPath, results);
     } else if (entry.isFile()) {
       try {
         const stats = statSync(fullPath);
+        const relativePath =
+          dirPath === rootPath ? null : dirPath.substring(rootPath.length + 1);
         results.push({
           name: entry.name,
           path: fullPath,
           size: stats.size,
+          relativePath,
         });
       } catch {
         // Skip files we cannot stat (permission errors, etc.)
@@ -66,13 +70,14 @@ export async function POST(request: NextRequest) {
             name: absPath.split("/").pop() ?? absPath,
             path: absPath,
             size: stats.size,
+            relativePath: null,
           },
         ],
       });
     }
 
     const files: FileEntry[] = [];
-    scanDir(absPath, files);
+    scanDir(absPath, absPath, files);
 
     // Sort by name
     files.sort((a, b) => a.name.localeCompare(b.name));

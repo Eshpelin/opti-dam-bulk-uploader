@@ -8,6 +8,7 @@ import {
 } from "./part-size-calculator";
 import type { UploadFile, MultipartUploadResponse } from "@/types";
 import { autoExportAll } from "./auto-export";
+import { fetchAndStoreFolders } from "./fetch-folders";
 
 let isRunning = false;
 let activeUploads = 0;
@@ -17,6 +18,9 @@ const abortControllers = new Map<string, AbortController>();
 
 // Deduplicate folder permission grants within a session
 const grantedFolderPermissions = new Set<string>();
+
+// Cache of relativePath -> CMP folder ID, built by prepareFolderTree()
+const folderPathToIdCache = new Map<string, string>();
 
 /**
  * Cancel an in-progress upload. Aborts all pending fetch requests for the file
@@ -41,16 +45,113 @@ export function cancelUpload(fileId: string) {
 }
 
 /**
+ * Pre-create CMP subfolders for all queued files that have a relativePath.
+ * Runs before processQueue() to avoid race conditions from parallel uploads.
+ */
+async function prepareFolderTree() {
+  const store = useUploadStore.getState();
+  const baseFolderId = store.selectedFolderId;
+
+  // Collect all unique relativePaths from queued files
+  const relativePaths = new Set<string>();
+  for (const id of store.fileOrder) {
+    const file = store.files.get(id);
+    if (file && file.status === "queued" && file.relativePath) {
+      relativePaths.add(file.relativePath);
+    }
+  }
+
+  if (relativePaths.size === 0) return;
+
+  // Decompose into all intermediate paths
+  // e.g. "a/b/c" needs "a", "a/b", "a/b/c"
+  const allPaths = new Set<string>();
+  for (const rp of relativePaths) {
+    const segments = rp.split("/");
+    for (let i = 1; i <= segments.length; i++) {
+      allPaths.add(segments.slice(0, i).join("/"));
+    }
+  }
+
+  // Sort by depth (shallow first), then alphabetically
+  const sorted = Array.from(allPaths).sort((a, b) => {
+    const depthA = a.split("/").length;
+    const depthB = b.split("/").length;
+    if (depthA !== depthB) return depthA - depthB;
+    return a.localeCompare(b);
+  });
+
+  store.addLog("info", `Creating ${sorted.length} CMP folder(s) for directory structure`);
+
+  for (const folderPath of sorted) {
+    const segments = folderPath.split("/");
+    const folderName = segments[segments.length - 1];
+    const parentPath = segments.slice(0, -1).join("/");
+    const parentId = parentPath
+      ? folderPathToIdCache.get(parentPath) ?? baseFolderId
+      : baseFolderId;
+
+    // Check if the folder already exists in the store
+    const currentFolders = useUploadStore.getState().folders;
+    const existing = currentFolders.find(
+      (f) => f.name === folderName && f.parentFolderId === parentId
+    );
+
+    if (existing) {
+      folderPathToIdCache.set(folderPath, existing.id);
+      store.addLog("info", `Folder "${folderPath}" already exists, reusing`);
+      continue;
+    }
+
+    // Create the folder via API
+    try {
+      const response = await fetch("/api/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: folderName, parentFolderId: parentId }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      folderPathToIdCache.set(folderPath, data.id);
+      store.addLog("info", `Created CMP folder "${folderPath}"`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      store.addLog("error", `Failed to create folder "${folderPath}": ${msg}. Files will use base folder.`);
+    }
+  }
+
+  // Update each queued file's folderId based on its relativePath
+  for (const id of store.fileOrder) {
+    const file = useUploadStore.getState().files.get(id);
+    if (file && file.status === "queued" && file.relativePath) {
+      const mappedFolderId = folderPathToIdCache.get(file.relativePath);
+      if (mappedFolderId) {
+        store.updateFileProgress(id, { folderId: mappedFolderId });
+      }
+    }
+  }
+
+  // Refresh folders in the store so new folders appear in the UI
+  await fetchAndStoreFolders();
+}
+
+/**
  * Start processing the upload queue.
  * Call this when the user clicks "Start Upload".
  */
-export function startOrchestrator() {
+export async function startOrchestrator() {
   const store = useUploadStore.getState();
   store.setIsUploading(true);
   store.setIsPaused(false);
 
   if (!isRunning) {
     isRunning = true;
+    await prepareFolderTree();
     processQueue();
   }
 }
@@ -64,6 +165,7 @@ export function stopOrchestrator() {
   useUploadStore.getState().setIsUploading(false);
   useUploadStore.getState().setIsPaused(false);
   grantedFolderPermissions.clear();
+  folderPathToIdCache.clear();
 }
 
 function processQueue() {
