@@ -89,7 +89,23 @@ function processQueue() {
   if (queuedFiles.length === 0 && activeUploads === 0) {
     isRunning = false;
     store.setIsUploading(false);
-    store.addLog("info", "All uploads completed");
+
+    let failed = 0;
+    let completed = 0;
+    for (const id of store.fileOrder) {
+      const f = store.files.get(id);
+      if (f?.status === "failed") failed++;
+      if (f?.status === "completed") completed++;
+    }
+
+    if (failed > 0) {
+      store.addLog(
+        "warn",
+        `Uploads finished with ${failed} failure${failed > 1 ? "s" : ""} and ${completed} success${completed !== 1 ? "es" : ""}`
+      );
+    } else {
+      store.addLog("info", "All uploads completed successfully");
+    }
     return;
   }
 
@@ -307,16 +323,14 @@ async function doMultipartUpload(file: UploadFile, signal: AbortSignal): Promise
     throw new Error(`Multipart complete failed: ${errData.error || completeResponse.status}`);
   }
 
-  const completeData = await completeResponse.json();
+  // The /complete endpoint returns 202 and its key field is unreliable.
+  // Always poll /status for the final key after UPLOAD_COMPLETION_SUCCEEDED.
+  await completeResponse.json();
 
   // Step 4: Poll for completion status
   store.addLog("info", `Waiting for server-side processing to complete`, file.name);
 
-  let key = completeData.key;
-  if (!key) {
-    key = await pollForCompletion(file, initData.id, signal);
-  }
-
+  const key = await pollForCompletion(file, initData.id, signal);
   return key;
 }
 
@@ -512,6 +526,7 @@ async function pollForCompletion(
       case "UPLOAD_COMPLETION_FAILED":
         throw new Error(`Server-side processing failed: ${data.status_message || "Unknown error"}`);
 
+      case "UPLOAD_COMPLETION_NOT_STARTED":
       case "UPLOAD_COMPLETION_IN_PROGRESS":
         if (Date.now() - startTime > maxPollMs) {
           throw new Error(
