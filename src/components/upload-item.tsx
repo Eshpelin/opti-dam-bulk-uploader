@@ -10,9 +10,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { X, RotateCcw, AlertTriangle, File, Link, FolderOpen } from "lucide-react";
+import { X, RotateCcw, AlertTriangle, File, Link, FolderOpen, Ban } from "lucide-react";
 import type { UploadFile } from "@/types";
 import { formatBytes } from "@/lib/part-size-calculator";
+import { cancelUpload } from "@/lib/upload-orchestrator";
 
 const statusConfig: Record<
   UploadFile["status"],
@@ -42,6 +43,7 @@ export function UploadItem({ file }: Props) {
 
   const config = statusConfig[file.status];
   const canRemove = file.status === "queued" || file.status === "failed" || file.status === "completed";
+  const canCancel = file.status === "uploading" || file.status === "completing" || file.status === "registering";
   const canRetry = file.status === "failed";
 
   return (
@@ -130,6 +132,17 @@ export function UploadItem({ file }: Props) {
 
         {/* Actions */}
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {canCancel && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => cancelUpload(file.id)}
+              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+              title="Cancel upload"
+            >
+              <Ban className="h-3 w-3" />
+            </Button>
+          )}
           {canRetry && (
             <Button
               variant="ghost"

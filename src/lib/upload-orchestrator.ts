@@ -11,6 +11,31 @@ import type { UploadFile, MultipartUploadResponse } from "@/types";
 let isRunning = false;
 let activeUploads = 0;
 
+// Track AbortControllers per file so uploads can be cancelled
+const abortControllers = new Map<string, AbortController>();
+
+/**
+ * Cancel an in-progress upload. Aborts all pending fetch requests for the file
+ * and marks it as failed in the store.
+ */
+export function cancelUpload(fileId: string) {
+  const controller = abortControllers.get(fileId);
+  if (controller) {
+    controller.abort();
+    abortControllers.delete(fileId);
+  }
+
+  const store = useUploadStore.getState();
+  const file = store.files.get(fileId);
+  if (file && file.status !== "completed" && file.status !== "failed") {
+    store.setFileStatus(fileId, "failed", {
+      error: "Cancelled by user",
+      completedAt: Date.now(),
+    });
+    store.addLog("warn", "Upload cancelled", file.name);
+  }
+}
+
 /**
  * Start processing the upload queue.
  * Call this when the user clicks "Start Upload".
@@ -87,6 +112,9 @@ function processQueue() {
 
 async function uploadFile(file: UploadFile) {
   const store = useUploadStore.getState();
+  const abortController = new AbortController();
+  abortControllers.set(file.id, abortController);
+  const signal = abortController.signal;
 
   store.setFileStatus(file.id, "uploading", {
     startedAt: Date.now(),
@@ -100,24 +128,25 @@ async function uploadFile(file: UploadFile) {
     let effectiveSize = file.size;
     if (effectiveSize === 0 && file.source === "url") {
       try {
-        const headRes = await fetch(file.sourcePath, { method: "HEAD" });
+        const headRes = await fetch(file.sourcePath, { method: "HEAD", signal });
         const cl = headRes.headers.get("content-length");
         if (cl) {
           effectiveSize = parseInt(cl, 10);
           store.updateFileProgress(file.id, { size: effectiveSize });
         }
-      } catch {
+      } catch (err) {
+        if (signal.aborted) throw new Error("Cancelled by user");
         // HEAD failed, proceed with standard upload as fallback
       }
     }
 
     if (effectiveSize > 0 && effectiveSize < MULTIPART_THRESHOLD) {
-      key = await doStandardUpload(file);
+      key = await doStandardUpload(file, signal);
     } else if (effectiveSize === 0) {
       // Size still unknown: use standard upload and let the backend handle it
-      key = await doStandardUpload(file);
+      key = await doStandardUpload(file, signal);
     } else {
-      key = await doMultipartUpload(file);
+      key = await doMultipartUpload(file, signal);
     }
 
     // Register the asset in CMP
@@ -133,6 +162,7 @@ async function uploadFile(file: UploadFile) {
         title: file.name,
         folderId: selectedFolderId,
       }),
+      signal,
     });
 
     if (!assetResponse.ok) {
@@ -152,15 +182,20 @@ async function uploadFile(file: UploadFile) {
       completedAt: Date.now(),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown upload error";
-    store.setFileStatus(file.id, "failed", {
-      error: message,
-      completedAt: Date.now(),
-    });
+    // Only update status if not already cancelled (cancelUpload handles that)
+    if (!signal.aborted) {
+      const message = err instanceof Error ? err.message : "Unknown upload error";
+      store.setFileStatus(file.id, "failed", {
+        error: message,
+        completedAt: Date.now(),
+      });
+    }
+  } finally {
+    abortControllers.delete(file.id);
   }
 }
 
-async function doStandardUpload(file: UploadFile): Promise<string> {
+async function doStandardUpload(file: UploadFile, signal: AbortSignal): Promise<string> {
   const store = useUploadStore.getState();
 
   store.updateFileProgress(file.id, { progress: 30 });
@@ -175,6 +210,7 @@ async function doStandardUpload(file: UploadFile): Promise<string> {
     response = await fetch("/api/upload-standard", {
       method: "POST",
       body: formData,
+      signal,
     });
   } else if (file.source === "path") {
     // Path file: backend reads from filesystem
@@ -182,6 +218,7 @@ async function doStandardUpload(file: UploadFile): Promise<string> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filePath: file.sourcePath, fileName: file.name }),
+      signal,
     });
   } else if (file.source === "url") {
     // URL file: backend downloads and uploads
@@ -189,6 +226,7 @@ async function doStandardUpload(file: UploadFile): Promise<string> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fileUrl: file.sourcePath, fileName: file.name }),
+      signal,
     });
   } else {
     throw new Error(`Unsupported source type: ${file.source}`);
@@ -205,7 +243,7 @@ async function doStandardUpload(file: UploadFile): Promise<string> {
   return data.key;
 }
 
-async function doMultipartUpload(file: UploadFile): Promise<string> {
+async function doMultipartUpload(file: UploadFile, signal: AbortSignal): Promise<string> {
   const store = useUploadStore.getState();
   const partSize = calculatePartSize(file.size);
   const estimate = estimateUpload(file.size);
@@ -229,6 +267,7 @@ async function doMultipartUpload(file: UploadFile): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fileSize: file.size, partSize }),
+    signal,
   });
 
   if (!initResponse.ok) {
@@ -245,11 +284,11 @@ async function doMultipartUpload(file: UploadFile): Promise<string> {
 
   // Step 2: Upload chunks
   if (file.source === "path") {
-    await uploadChunksFromPath(file, initData, partSize);
+    await uploadChunksFromPath(file, initData, partSize, signal);
   } else if (file.source === "url") {
-    await uploadChunksFromUrl(file, initData, partSize);
+    await uploadChunksFromUrl(file, initData, partSize, signal);
   } else {
-    await uploadChunksFromBrowser(file, initData, partSize);
+    await uploadChunksFromBrowser(file, initData, partSize, signal);
   }
 
   // Step 3: Complete the upload
@@ -258,7 +297,7 @@ async function doMultipartUpload(file: UploadFile): Promise<string> {
 
   const completeResponse = await fetch(
     `/api/multipart-uploads/${initData.id}/complete`,
-    { method: "POST" }
+    { method: "POST", signal }
   );
 
   if (!completeResponse.ok) {
@@ -273,7 +312,7 @@ async function doMultipartUpload(file: UploadFile): Promise<string> {
 
   let key = completeData.key;
   if (!key) {
-    key = await pollForCompletion(file, initData.id);
+    key = await pollForCompletion(file, initData.id, signal);
   }
 
   return key;
@@ -282,7 +321,8 @@ async function doMultipartUpload(file: UploadFile): Promise<string> {
 async function uploadChunksFromBrowser(
   file: UploadFile,
   initData: MultipartUploadResponse,
-  partSize: number
+  partSize: number,
+  signal: AbortSignal
 ) {
   const store = useUploadStore.getState();
   const browserFile = file.browserFile;
@@ -312,6 +352,7 @@ async function uploadChunksFromBrowser(
           const response = await fetch("/api/upload-chunk", {
             method: "POST",
             body: formData,
+            signal,
           });
 
           if (!response.ok) {
@@ -351,7 +392,8 @@ async function uploadChunksFromBrowser(
 async function uploadChunksFromPath(
   file: UploadFile,
   initData: MultipartUploadResponse,
-  partSize: number
+  partSize: number,
+  signal: AbortSignal
 ) {
   const store = useUploadStore.getState();
 
@@ -363,6 +405,7 @@ async function uploadChunksFromPath(
       presignedUrls: initData.upload_part_urls,
       partSize,
     }),
+    signal,
   });
 
   await processSSEStream(response, file, store);
@@ -371,7 +414,8 @@ async function uploadChunksFromPath(
 async function uploadChunksFromUrl(
   file: UploadFile,
   initData: MultipartUploadResponse,
-  partSize: number
+  partSize: number,
+  signal: AbortSignal
 ) {
   const store = useUploadStore.getState();
 
@@ -384,6 +428,7 @@ async function uploadChunksFromUrl(
       partSize,
       totalSize: file.size,
     }),
+    signal,
   });
 
   await processSSEStream(response, file, store);
@@ -437,7 +482,8 @@ async function processSSEStream(
 
 async function pollForCompletion(
   file: UploadFile,
-  uploadId: string
+  uploadId: string,
+  signal: AbortSignal
 ): Promise<string> {
   const store = useUploadStore.getState();
   const maxPollMs = 30 * 60 * 1000;
@@ -445,7 +491,8 @@ async function pollForCompletion(
   const startTime = Date.now();
 
   while (true) {
-    const response = await fetch(`/api/multipart-uploads/${uploadId}/status`);
+    if (signal.aborted) throw new Error("Cancelled by user");
+    const response = await fetch(`/api/multipart-uploads/${uploadId}/status`, { signal });
     if (!response.ok) {
       throw new Error(`Failed to get upload status (${response.status})`);
     }
