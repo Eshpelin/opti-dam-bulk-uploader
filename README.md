@@ -2,6 +2,8 @@
 
 A local web application for uploading files in bulk to the Optimizely CMP (Content Marketing Platform) Digital Asset Manager. Built to handle everything from small images to massive video files up to 5 TB, with multipart chunked uploads, automatic retry logic, real-time progress tracking, and intelligent rate limiting.
 
+![CMP DAM Bulk Uploader](docs/screenshot.png)
+
 ## Table of Contents
 
 - [Features](#features)
@@ -22,9 +24,16 @@ A local web application for uploading files in bulk to the Optimizely CMP (Conte
 ## Features
 
 **Three input modes**
-- Drag-and-drop files directly from your computer
+- Drag and drop files or entire folders directly from your computer
 - Paste download URLs (one per line) for remote files
 - Enter a filesystem path to recursively scan and upload an entire directory
+
+**Folder upload with subfolder creation**
+- Drop a folder onto the drop zone or use the "Or choose a folder" button to pick one from the file system
+- The full directory hierarchy is automatically recreated as CMP subfolders
+- Each file is placed in the matching CMP subfolder based on its relative path
+- Existing subfolders are detected and reused to avoid duplicates
+- Path-based scanning also preserves the directory structure
 
 **Large file support**
 - Files under 5 MB use a fast single-request upload
@@ -49,10 +58,12 @@ A local web application for uploading files in bulk to the Optimizely CMP (Conte
 - Results table with status, file size, Asset ID, and completion time for every file
 - One-click copy of Asset IDs
 - CSV export of all results for external reporting
+- Automatic download of logs and CSV results when all uploads finish
 
 **CMP integration**
 - OAuth 2.0 Client Credentials authentication
 - Target folder selection with searchable dropdown and breadcrumb paths
+- Per-file and default accessor permissions (user or team) with view/edit access levels
 - Rate limiting at 6 requests per second (below the documented 8/s API limit)
 - Automatic 429 backoff with Retry-After header parsing
 
@@ -67,12 +78,14 @@ A local web application for uploading files in bulk to the Optimizely CMP (Conte
 You need a Client ID and Client Secret from your Optimizely CMP account.
 
 1. Log in to your Optimizely CMP instance
-2. Navigate to **Settings** > **API Clients**
-3. Click **Create API Client**
+2. Go to [Settings > Apps & Webhooks](https://cmp.optimizely.com/cloud/settings/apps-and-webhooks/apps/)
+3. Click **Create App**
 4. Select the **Client Credentials** grant type
 5. Copy the **Client ID** and **Client Secret** that are generated
 
 These credentials are entered in the application's login screen. They are stored only in memory for the duration of your session and are never written to disk.
+
+**Security recommendation.** Create a dedicated app credential for bulk uploads and rotate (regenerate) the secret immediately after you finish your session.
 
 ## Quick Start
 
@@ -143,11 +156,11 @@ Use the folder dropdown in the top bar to choose where uploaded assets will be p
 
 Choose one of three tabs to add files to the upload queue.
 
-**Drop Files tab.** Drag files from your file manager into the drop zone, or click to open a file picker. Files are read from the browser, so this mode works best for files that are accessible on your local machine and are not extremely large (under a few GB). For very large files, prefer the "From Path" tab.
+**Drop Files tab.** Drag files or entire folders from your file manager into the drop zone, or click to open a file picker. Use the **Or choose a folder** button to select a folder via the system dialog. When a folder is dropped or selected, the directory hierarchy is preserved and will be recreated as CMP subfolders during upload. Files are read from the browser, so this mode works best for files that are accessible on your local machine and are not extremely large (under a few GB). For very large files, prefer the "From Path" tab.
 
 **From URLs tab.** Paste one URL per line. The application will download each URL through the backend and upload it to CMP. File sizes are probed with a HEAD request before uploading. If the file size cannot be determined, the application falls back to downloading and uploading in a single pass.
 
-**From Path tab.** Enter an absolute filesystem path (e.g. `/Users/you/assets` or `C:\Users\you\assets`). Click **Scan** to recursively discover all files in that directory. Hidden files and directories (those starting with `.`) are automatically skipped. Review the scanned file list, then click **Add to Queue**. This mode streams files directly from disk through the backend, using zero browser memory regardless of file size. Ideal for very large files.
+**From Path tab.** Enter an absolute filesystem path (e.g. `/Users/you/assets` or `C:\Users\you\assets`). Click **Scan** to recursively discover all files in that directory. Hidden files and directories (those starting with `.`) are automatically skipped. The scan preview shows each file's relative path within the directory structure. Review the scanned file list, then click **Add to Queue**. This mode streams files directly from disk through the backend, using zero browser memory regardless of file size. Ideal for very large files.
 
 ### Step 4. Configure concurrency
 
@@ -270,6 +283,7 @@ The Optimizely CMP token endpoint does not include CORS headers in its responses
 | `/api/auth` | GET | Check current authentication status |
 | `/api/auth` | DELETE | Disconnect and clear stored token |
 | `/api/folders` | GET | Fetch all CMP folders (paginated) |
+| `/api/folders` | POST | Create a new CMP folder |
 | `/api/upload-url` | GET | Get presigned URL for standard upload |
 | `/api/upload-standard` | POST | Complete standard upload for files under 5 MB |
 | `/api/upload-chunk` | POST | Proxy a single chunk upload to S3 |
@@ -279,6 +293,9 @@ The Optimizely CMP token endpoint does not include CORS headers in its responses
 | `/api/multipart-uploads/[id]/complete` | POST | Complete multipart upload |
 | `/api/multipart-uploads/[id]/status` | GET | Poll multipart upload completion status |
 | `/api/assets` | POST | Register uploaded file as CMP asset |
+| `/api/permissions` | POST | Grant user or team permissions on assets or folders |
+| `/api/users` | GET | Fetch all CMP users (paginated) |
+| `/api/teams` | GET | Fetch all CMP teams (paginated) |
 | `/api/scan-directory` | POST | Recursively scan a filesystem directory |
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for all 20 design decisions and their rationale.
@@ -289,28 +306,34 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for all 20 design decisions and their r
 cmp-dam-bulk-uploader/
 ├── bin/
 │   └── cli.js                    # CLI entry point for global install
+├── docs/
+│   └── screenshot.png            # Application screenshot
 ├── public/                       # Static assets
 ├── src/
 │   ├── app/
 │   │   ├── api/                  # Next.js API routes (backend proxy)
 │   │   │   ├── auth/
 │   │   │   ├── assets/
-│   │   │   ├── folders/
+│   │   │   ├── folders/          # GET list, POST create
 │   │   │   ├── multipart-uploads/
+│   │   │   ├── permissions/
 │   │   │   ├── scan-directory/
+│   │   │   ├── teams/
 │   │   │   ├── upload-chunk/
 │   │   │   ├── upload-from-path/
 │   │   │   ├── upload-from-url/
 │   │   │   ├── upload-standard/
-│   │   │   └── upload-url/
+│   │   │   ├── upload-url/
+│   │   │   └── users/
 │   │   ├── layout.tsx            # Root layout with Toaster
 │   │   ├── page.tsx              # Auth gate (shows login or dashboard)
 │   │   └── globals.css
 │   ├── components/
 │   │   ├── ui/                   # shadcn/ui primitives
-│   │   ├── auth-form.tsx         # Login screen
+│   │   ├── accessor-selector.tsx # User/team permission picker
+│   │   ├── auth-form.tsx         # Login screen with credential guidance
 │   │   ├── console-log.tsx       # Virtualized log panel
-│   │   ├── drop-zone.tsx         # Drag-and-drop file input
+│   │   ├── drop-zone.tsx         # Drag-and-drop file and folder input
 │   │   ├── folder-selector.tsx   # Searchable folder dropdown
 │   │   ├── path-input.tsx        # Filesystem path scanner
 │   │   ├── results-table.tsx     # Results with CSV export
@@ -321,11 +344,14 @@ cmp-dam-bulk-uploader/
 │   ├── hooks/
 │   │   └── use-beforeunload.ts   # Browser close warning
 │   ├── lib/
+│   │   ├── auto-export.ts        # Auto-download logs and CSV on completion
 │   │   ├── cmp-client.ts         # CMP API wrapper (all endpoints)
+│   │   ├── fetch-folders.ts      # Folder fetching and breadcrumb builder
+│   │   ├── fetch-users.ts        # User and team fetching
 │   │   ├── part-size-calculator.ts # Chunk sizing and estimation
 │   │   ├── rate-limiter.ts       # Token bucket rate limiter
-│   │   ├── token-manager.ts      # OAuth token lifecycle
-│   │   ├── upload-orchestrator.ts # Queue processor and chunk engine
+│   │   ├── token-manager.ts      # OAuth token lifecycle (HMR-safe)
+│   │   ├── upload-orchestrator.ts # Queue processor, folder tree, chunk engine
 │   │   └── utils.ts              # shadcn/ui utility
 │   ├── stores/
 │   │   └── upload-store.ts       # Zustand state (files, logs, auth)
