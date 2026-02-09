@@ -1,12 +1,21 @@
 {
   "name": "cmp-dam-bulk-uploader",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "Bulk upload files to Optimizely CMP DAM with multipart support for large files",
+  "bin": {
+    "cmp-bulk-upload": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    ".next/standalone/",
+    ".next/static/"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.18",
