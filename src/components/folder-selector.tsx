@@ -6,13 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FolderOpen, Loader2, X } from "lucide-react";
 
-export function FolderSelector() {
+interface FolderSelectorProps {
+  /** Override the selected value (for per-file usage). When omitted, uses global selectedFolderId. */
+  value?: string | null;
+  /** Called when the user picks a folder. When omitted, updates global selectedFolderId. */
+  onChange?: (folderId: string | null) => void;
+  /** Compact mode for inline use in upload items */
+  compact?: boolean;
+}
+
+export function FolderSelector({ value, onChange, compact }: FolderSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const folders = useUploadStore((s) => s.folders);
   const foldersLoading = useUploadStore((s) => s.foldersLoading);
-  const selectedFolderId = useUploadStore((s) => s.selectedFolderId);
-  const setSelectedFolderId = useUploadStore((s) => s.setSelectedFolderId);
+  const globalFolderId = useUploadStore((s) => s.selectedFolderId);
+  const setGlobalFolderId = useUploadStore((s) => s.setSelectedFolderId);
+
+  const selectedFolderId = value !== undefined ? value : globalFolderId;
+  const setSelectedFolderId = onChange ?? setGlobalFolderId;
 
   const selectedFolder = useMemo(
     () => folders.find((f) => f.id === selectedFolderId),
@@ -31,7 +43,7 @@ export function FolderSelector() {
       .slice(0, 50);
   }, [folders, search]);
 
-  if (foldersLoading) {
+  if (foldersLoading && !compact) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
@@ -40,20 +52,29 @@ export function FolderSelector() {
     );
   }
 
+  const label = selectedFolder ? selectedFolder.breadcrumb : "Root";
+
   return (
     <div className="relative">
-      <div className="flex items-center gap-2">
-        <FolderOpen className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Target folder:</span>
+      <div className="flex items-center gap-1.5">
+        {!compact && <FolderOpen className="h-4 w-4 text-muted-foreground" />}
+        {!compact && <span className="text-sm text-muted-foreground">Default folder:</span>}
         <Button
           variant="outline"
           size="sm"
           onClick={() => setIsOpen(!isOpen)}
-          className="h-7 text-xs"
+          className={compact ? "h-5 text-[10px] px-1.5 font-normal" : "h-7 text-xs"}
         >
-          {selectedFolder ? selectedFolder.breadcrumb : "Root (default)"}
+          {compact ? (
+            <span className="flex items-center gap-1">
+              <FolderOpen className="h-2.5 w-2.5" />
+              <span className="max-w-[100px] truncate">{label}</span>
+            </span>
+          ) : (
+            label === "Root" ? "Root (default)" : label
+          )}
         </Button>
-        {selectedFolderId && (
+        {selectedFolderId && !compact && (
           <button
             onClick={() => setSelectedFolderId(null)}
             className="text-muted-foreground hover:text-foreground"
@@ -64,7 +85,9 @@ export function FolderSelector() {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-96 bg-popover border rounded-md shadow-lg z-50 p-2">
+        <div className={`absolute top-full mt-1 bg-popover border rounded-md shadow-lg z-50 p-2 ${
+          compact ? "right-0 w-72" : "left-0 w-96"
+        }`}>
           <Input
             placeholder="Search folders..."
             value={search}
@@ -77,6 +100,7 @@ export function FolderSelector() {
               onClick={() => {
                 setSelectedFolderId(null);
                 setIsOpen(false);
+                setSearch("");
               }}
               className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent ${
                 !selectedFolderId ? "bg-accent" : ""
@@ -90,6 +114,7 @@ export function FolderSelector() {
                 onClick={() => {
                   setSelectedFolderId(folder.id);
                   setIsOpen(false);
+                  setSearch("");
                 }}
                 className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent truncate ${
                   selectedFolderId === folder.id ? "bg-accent" : ""

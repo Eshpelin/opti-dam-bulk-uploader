@@ -31,6 +31,7 @@ export interface UploadFile {
   startedAt: number | null; // Unix ms
   completedAt: number | null; // Unix ms
   browserFile: File | null; // present only for drag-and-drop files
+  folderId: string | null; // target CMP folder (null = root)
 }
 
 /** Log entry severity */

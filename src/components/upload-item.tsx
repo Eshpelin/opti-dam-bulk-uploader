@@ -14,6 +14,7 @@ import { X, RotateCcw, AlertTriangle, File, Link, FolderOpen, Ban } from "lucide
 import type { UploadFile } from "@/types";
 import { formatBytes } from "@/lib/part-size-calculator";
 import { cancelUpload } from "@/lib/upload-orchestrator";
+import { FolderSelector } from "./folder-selector";
 
 const statusConfig: Record<
   UploadFile["status"],
@@ -40,6 +41,7 @@ interface Props {
 export function UploadItem({ file }: Props) {
   const removeFile = useUploadStore((s) => s.removeFile);
   const retryFile = useUploadStore((s) => s.retryFile);
+  const setFileFolderId = useUploadStore((s) => s.setFileFolderId);
 
   const config = statusConfig[file.status];
   const canRemove = file.status === "queued" || file.status === "failed" || file.status === "completed";
@@ -69,6 +71,13 @@ export function UploadItem({ file }: Props) {
           <span className="text-xs text-muted-foreground shrink-0">
             {file.size > 0 ? formatBytes(file.size) : "Size unknown"}
           </span>
+          {file.status === "queued" && (
+            <FolderSelector
+              value={file.folderId}
+              onChange={(folderId) => setFileFolderId(file.id, folderId)}
+              compact
+            />
+          )}
         </div>
 
         {/* Progress bar (only when uploading/completing) */}

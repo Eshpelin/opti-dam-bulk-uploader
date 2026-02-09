@@ -153,14 +153,16 @@ async function uploadFile(file: UploadFile) {
     store.setFileStatus(file.id, "registering", { cmpKey: key });
     store.addLog("info", `Registering asset in CMP`, file.name);
 
-    const selectedFolderId = useUploadStore.getState().selectedFolderId;
+    // Use per-file folder, falling back to the global default
+    const folderId = useUploadStore.getState().files.get(file.id)?.folderId
+      ?? useUploadStore.getState().selectedFolderId;
     const assetResponse = await fetch("/api/assets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         key,
         title: file.name,
-        folderId: selectedFolderId,
+        folderId,
       }),
       signal,
     });

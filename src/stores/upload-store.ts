@@ -54,6 +54,7 @@ interface UploadStore {
   ) => void;
   removeFile: (id: string) => void;
   retryFile: (id: string) => void;
+  setFileFolderId: (id: string, folderId: string | null) => void;
   clearCompleted: () => void;
 
   // Progress actions
@@ -76,6 +77,7 @@ interface UploadStore {
         | "totalChunks"
         | "startedAt"
         | "completedAt"
+        | "folderId"
       >
     >
   ) => void;
@@ -131,6 +133,7 @@ function makeEmptyFile(
     startedAt: null,
     completedAt: null,
     browserFile: browserFile ?? null,
+    folderId: null,
   };
 }
 
@@ -170,6 +173,8 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
           item.sourcePath,
           item.browserFile
         );
+        // Inherit the current default folder
+        file.folderId = state.selectedFolderId;
         newFiles.set(file.id, file);
         newOrder.push(file.id);
 
@@ -244,6 +249,15 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
       });
 
       return { files: newFiles, logs: newLogs };
+    }),
+
+  setFileFolderId: (id, folderId) =>
+    set((state) => {
+      const newFiles = new Map(state.files);
+      const file = newFiles.get(id);
+      if (!file || file.status !== "queued") return state;
+      newFiles.set(id, { ...file, folderId });
+      return { files: newFiles };
     }),
 
   clearCompleted: () =>
