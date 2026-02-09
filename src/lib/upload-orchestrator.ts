@@ -7,6 +7,7 @@ import {
   estimateUpload,
 } from "./part-size-calculator";
 import type { UploadFile, MultipartUploadResponse } from "@/types";
+import { autoExportAll } from "./auto-export";
 
 let isRunning = false;
 let activeUploads = 0;
@@ -110,6 +111,9 @@ function processQueue() {
     } else {
       store.addLog("info", "All uploads completed successfully");
     }
+
+    // Auto-download logs and results so the user never loses data
+    autoExportAll();
     return;
   }
 

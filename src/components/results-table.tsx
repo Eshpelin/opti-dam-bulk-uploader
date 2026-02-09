@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Download, Copy, Check } from "lucide-react";
 import { formatBytes } from "@/lib/part-size-calculator";
-import type { UploadFile, ReportRow } from "@/types";
+import { downloadResultsCsv } from "@/lib/auto-export";
+import type { UploadFile } from "@/types";
 import { useState } from "react";
 
 export function ResultsTable() {
@@ -66,51 +67,6 @@ export function ResultsTable() {
     return users.find((u) => u.id === file.accessorId)?.fullName ?? "Unknown";
   };
 
-  const handleExportCsv = () => {
-    const rows: ReportRow[] = results.map((f) => ({
-      filename: f.name,
-      source: f.source,
-      sourcePath: f.sourcePath,
-      fileSizeBytes: f.size,
-      status: f.status === "completed" ? "success" : "failed",
-      assetId: f.assetId || "",
-      folder: getFolderLabel(f.folderId),
-      accessor: getAccessorLabel(f),
-      accessType: f.accessorId ? f.accessType : "",
-      errorMessage: f.error || "",
-      completedAt: f.completedAt
-        ? new Date(f.completedAt).toISOString()
-        : "",
-    }));
-
-    const header =
-      "filename,source,source_path,file_size_bytes,status,asset_id,folder,accessor,access_type,error_message,completed_at";
-    const csvRows = rows.map((r) =>
-      [
-        csvEscape(r.filename),
-        r.source,
-        csvEscape(r.sourcePath),
-        r.fileSizeBytes,
-        r.status,
-        r.assetId,
-        csvEscape(r.folder),
-        csvEscape(r.accessor),
-        r.accessType,
-        csvEscape(r.errorMessage),
-        r.completedAt,
-      ].join(",")
-    );
-
-    const csv = [header, ...csvRows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `cmp-upload-report-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -121,7 +77,7 @@ export function ResultsTable() {
             {stats.total} total
           </span>
         </div>
-        <Button onClick={handleExportCsv} variant="outline" size="sm" className="h-7">
+        <Button onClick={downloadResultsCsv} variant="outline" size="sm" className="h-7">
           <Download className="h-3 w-3 mr-1" />
           Download CSV
         </Button>
@@ -237,9 +193,3 @@ function ResultRow({ file, folderLabel, accessorLabel }: { file: UploadFile; fol
   );
 }
 
-function csvEscape(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
