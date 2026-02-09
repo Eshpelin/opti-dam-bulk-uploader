@@ -12,6 +12,8 @@ import {
 } from "@/lib/upload-orchestrator";
 import { Play, Pause, Trash2 } from "lucide-react";
 import { formatBytes } from "@/lib/part-size-calculator";
+import { AccessorSelector } from "./accessor-selector";
+import type { AccessType } from "@/types";
 
 export function UploadQueue() {
   const fileOrder = useUploadStore((s) => s.fileOrder);
@@ -21,6 +23,8 @@ export function UploadQueue() {
   const maxParallelSlots = useUploadStore((s) => s.maxParallelSlots);
   const setMaxParallelSlots = useUploadStore((s) => s.setMaxParallelSlots);
   const clearCompleted = useUploadStore((s) => s.clearCompleted);
+  const selectedAccessType = useUploadStore((s) => s.selectedAccessType);
+  const setSelectedAccessType = useUploadStore((s) => s.setSelectedAccessType);
 
   const stats = useMemo(() => {
     let total = 0;
@@ -140,6 +144,38 @@ export function UploadQueue() {
           step={1}
           className="w-32"
         />
+      </div>
+
+      {/* Default accessor */}
+      <div className="flex items-center gap-3">
+        <AccessorSelector />
+        {useUploadStore.getState().selectedAccessor && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-muted-foreground">Default access:</span>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setSelectedAccessType("view")}
+                className={`text-xs px-2 py-0.5 rounded ${
+                  selectedAccessType === "view"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                View
+              </button>
+              <button
+                onClick={() => setSelectedAccessType("edit")}
+                className={`text-xs px-2 py-0.5 rounded ${
+                  selectedAccessType === "edit"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* File list */}

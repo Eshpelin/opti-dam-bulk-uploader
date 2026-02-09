@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { fetchAndStoreFolders } from "@/lib/fetch-folders";
+import { fetchAndStoreUsers } from "@/lib/fetch-users";
 
 export function AuthForm() {
   const [clientId, setClientId] = useState("");
@@ -52,8 +53,9 @@ export function AuthForm() {
       setAuthenticating(false);
       addLog("success", "Successfully connected to Optimizely CMP");
 
-      // Fetch folders in background
+      // Fetch folders and users/teams in background
       fetchAndStoreFolders();
+      fetchAndStoreUsers();
     } catch (err) {
       setAuthError(
         err instanceof Error ? err.message : "Connection failed"

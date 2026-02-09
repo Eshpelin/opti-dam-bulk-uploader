@@ -27,6 +27,8 @@ export function ResultsTable() {
   const fileOrder = useUploadStore((s) => s.fileOrder);
   const files = useUploadStore((s) => s.files);
   const folders = useUploadStore((s) => s.folders);
+  const users = useUploadStore((s) => s.users);
+  const teams = useUploadStore((s) => s.teams);
 
   const results = useMemo(() => {
     const items: UploadFile[] = [];
@@ -56,6 +58,14 @@ export function ResultsTable() {
     return folders.find((f) => f.id === folderId)?.breadcrumb ?? "Unknown";
   };
 
+  const getAccessorLabel = (file: UploadFile) => {
+    if (!file.accessorId) return "";
+    if (file.accessorType === "team") {
+      return teams.find((t) => t.id === file.accessorId)?.name ?? "Unknown";
+    }
+    return users.find((u) => u.id === file.accessorId)?.fullName ?? "Unknown";
+  };
+
   const handleExportCsv = () => {
     const rows: ReportRow[] = results.map((f) => ({
       filename: f.name,
@@ -65,6 +75,8 @@ export function ResultsTable() {
       status: f.status === "completed" ? "success" : "failed",
       assetId: f.assetId || "",
       folder: getFolderLabel(f.folderId),
+      accessor: getAccessorLabel(f),
+      accessType: f.accessorId ? f.accessType : "",
       errorMessage: f.error || "",
       completedAt: f.completedAt
         ? new Date(f.completedAt).toISOString()
@@ -72,7 +84,7 @@ export function ResultsTable() {
     }));
 
     const header =
-      "filename,source,source_path,file_size_bytes,status,asset_id,folder,error_message,completed_at";
+      "filename,source,source_path,file_size_bytes,status,asset_id,folder,accessor,access_type,error_message,completed_at";
     const csvRows = rows.map((r) =>
       [
         csvEscape(r.filename),
@@ -82,6 +94,8 @@ export function ResultsTable() {
         r.status,
         r.assetId,
         csvEscape(r.folder),
+        csvEscape(r.accessor),
+        r.accessType,
         csvEscape(r.errorMessage),
         r.completedAt,
       ].join(",")
@@ -122,6 +136,8 @@ export function ResultsTable() {
               <TableHead className="text-xs w-[80px]">Size</TableHead>
               <TableHead className="text-xs w-[70px]">Status</TableHead>
               <TableHead className="text-xs w-[120px]">Folder</TableHead>
+              <TableHead className="text-xs w-[120px]">Accessor</TableHead>
+              <TableHead className="text-xs w-[50px]">Access</TableHead>
               <TableHead className="text-xs w-[180px]">Asset ID</TableHead>
               <TableHead className="text-xs">Error</TableHead>
               <TableHead className="text-xs w-[80px]">Time</TableHead>
@@ -129,7 +145,12 @@ export function ResultsTable() {
           </TableHeader>
           <TableBody>
             {results.map((file) => (
-              <ResultRow key={file.id} file={file} folderLabel={getFolderLabel(file.folderId)} />
+              <ResultRow
+                key={file.id}
+                file={file}
+                folderLabel={getFolderLabel(file.folderId)}
+                accessorLabel={getAccessorLabel(file)}
+              />
             ))}
           </TableBody>
         </Table>
@@ -138,7 +159,7 @@ export function ResultsTable() {
   );
 }
 
-function ResultRow({ file, folderLabel }: { file: UploadFile; folderLabel: string }) {
+function ResultRow({ file, folderLabel, accessorLabel }: { file: UploadFile; folderLabel: string; accessorLabel: string }) {
   const [copied, setCopied] = useState(false);
 
   const copyAssetId = () => {
@@ -177,6 +198,12 @@ function ResultRow({ file, folderLabel }: { file: UploadFile; folderLabel: strin
       </TableCell>
       <TableCell className="text-xs truncate max-w-[120px]" title={folderLabel}>
         {folderLabel}
+      </TableCell>
+      <TableCell className="text-xs truncate max-w-[120px]" title={accessorLabel}>
+        {accessorLabel || "-"}
+      </TableCell>
+      <TableCell className="text-xs">
+        {file.accessorId ? file.accessType : "-"}
       </TableCell>
       <TableCell className="text-xs font-mono">
         {file.assetId ? (

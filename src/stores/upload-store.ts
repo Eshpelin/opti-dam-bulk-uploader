@@ -7,7 +7,11 @@ import type {
   LogEntry,
   LogSeverity,
   CmpFolder,
+  CmpUser,
+  CmpTeam,
   FileSource,
+  AccessorType,
+  AccessType,
 } from "@/types";
 
 const MAX_LOG_ENTRIES = 50_000;
@@ -32,6 +36,14 @@ interface UploadStore {
   selectedFolderId: string | null;
   folders: CmpFolder[];
   foldersLoading: boolean;
+
+  // Accessor (users and teams)
+  users: CmpUser[];
+  usersLoading: boolean;
+  teams: CmpTeam[];
+  teamsLoading: boolean;
+  selectedAccessor: { id: string; type: AccessorType } | null;
+  selectedAccessType: AccessType;
 
   // Console
   logs: LogEntry[];
@@ -78,6 +90,9 @@ interface UploadStore {
         | "startedAt"
         | "completedAt"
         | "folderId"
+        | "accessorId"
+        | "accessorType"
+        | "accessType"
       >
     >
   ) => void;
@@ -96,6 +111,16 @@ interface UploadStore {
   setFolders: (folders: CmpFolder[]) => void;
   setFoldersLoading: (v: boolean) => void;
   setSelectedFolderId: (id: string | null) => void;
+
+  // Accessor actions
+  setUsers: (users: CmpUser[]) => void;
+  setUsersLoading: (v: boolean) => void;
+  setTeams: (teams: CmpTeam[]) => void;
+  setTeamsLoading: (v: boolean) => void;
+  setSelectedAccessor: (accessor: { id: string; type: AccessorType } | null) => void;
+  setSelectedAccessType: (type: AccessType) => void;
+  setFileAccessor: (fileId: string, accessor: { id: string; type: AccessorType } | null) => void;
+  setFileAccessType: (fileId: string, accessType: AccessType) => void;
 
   // Console actions
   addLog: (severity: LogSeverity, message: string, fileName?: string) => void;
@@ -134,6 +159,9 @@ function makeEmptyFile(
     completedAt: null,
     browserFile: browserFile ?? null,
     folderId: null,
+    accessorId: null,
+    accessorType: null,
+    accessType: "view",
   };
 }
 
@@ -150,6 +178,12 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   selectedFolderId: null,
   folders: [],
   foldersLoading: false,
+  users: [],
+  usersLoading: false,
+  teams: [],
+  teamsLoading: false,
+  selectedAccessor: null,
+  selectedAccessType: "view",
   logs: [],
   logFilter: "all",
 
@@ -173,8 +207,13 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
           item.sourcePath,
           item.browserFile
         );
-        // Inherit the current default folder
+        // Inherit the current defaults
         file.folderId = state.selectedFolderId;
+        if (state.selectedAccessor) {
+          file.accessorId = state.selectedAccessor.id;
+          file.accessorType = state.selectedAccessor.type;
+        }
+        file.accessType = state.selectedAccessType;
         newFiles.set(file.id, file);
         newOrder.push(file.id);
 
@@ -335,6 +374,34 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   setFoldersLoading: (v) => set({ foldersLoading: v }),
   setSelectedFolderId: (id) => set({ selectedFolderId: id }),
 
+  // Accessors
+  setUsers: (users) => set({ users }),
+  setUsersLoading: (v) => set({ usersLoading: v }),
+  setTeams: (teams) => set({ teams }),
+  setTeamsLoading: (v) => set({ teamsLoading: v }),
+  setSelectedAccessor: (accessor) => set({ selectedAccessor: accessor }),
+  setSelectedAccessType: (type) => set({ selectedAccessType: type }),
+  setFileAccessor: (fileId, accessor) =>
+    set((state) => {
+      const newFiles = new Map(state.files);
+      const file = newFiles.get(fileId);
+      if (!file || file.status !== "queued") return state;
+      newFiles.set(fileId, {
+        ...file,
+        accessorId: accessor?.id ?? null,
+        accessorType: accessor?.type ?? null,
+      });
+      return { files: newFiles };
+    }),
+  setFileAccessType: (fileId, accessType) =>
+    set((state) => {
+      const newFiles = new Map(state.files);
+      const file = newFiles.get(fileId);
+      if (!file || file.status !== "queued") return state;
+      newFiles.set(fileId, { ...file, accessType });
+      return { files: newFiles };
+    }),
+
   // Console
   addLog: (severity, message, fileName) =>
     set((state) => {
@@ -368,6 +435,12 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
       selectedFolderId: null,
       folders: [],
       foldersLoading: false,
+      users: [],
+      usersLoading: false,
+      teams: [],
+      teamsLoading: false,
+      selectedAccessor: null,
+      selectedAccessType: "view",
       logs: [],
       logFilter: "all",
     }),

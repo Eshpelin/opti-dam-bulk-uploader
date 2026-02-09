@@ -11,6 +11,8 @@ import type {
   MultipartStatusResponse,
   CreateAssetResponse,
   CompleteUploadResponse,
+  AccessorType,
+  AccessType,
 } from "@/types";
 
 const CMP_API_BASE = "https://api.cmp.optimizely.com";
@@ -224,6 +226,139 @@ export async function getAllFolders(): Promise<FlatFolder[]> {
   }
 
   return all;
+}
+
+// ─── Users & Teams ──────────────────────────────────────────
+
+interface UserApiItem {
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  image_url: string | null;
+}
+
+interface UserListResponse {
+  data: UserApiItem[];
+  pagination: {
+    next: string | null;
+    previous: string | null;
+  };
+}
+
+export async function listUsers(
+  offset: number = 0,
+  pageSize: number = 100
+): Promise<UserListResponse> {
+  const response = await cmpFetch(
+    `/v3/userlist?offset=${offset}&page_size=${pageSize}`
+  );
+  return parseJsonResponse<UserListResponse>(response);
+}
+
+export async function getAllUsers(): Promise<Array<{ id: string; fullName: string }>> {
+  const all: Array<{ id: string; fullName: string }> = [];
+  let offset = 0;
+  const pageSize = 100;
+
+  while (true) {
+    const result = await listUsers(offset, pageSize);
+
+    for (const u of result.data) {
+      all.push({
+        id: u.id,
+        fullName: u.full_name,
+      });
+    }
+
+    if (!result.pagination.next || result.data.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  return all;
+}
+
+interface TeamApiItem {
+  id: string;
+  name: string;
+}
+
+interface TeamListResponse {
+  data: TeamApiItem[];
+  pagination: {
+    next: string | null;
+    previous: string | null;
+  };
+}
+
+export async function listTeams(
+  offset: number = 0,
+  pageSize: number = 100
+): Promise<TeamListResponse> {
+  const response = await cmpFetch(
+    `/v3/teams?offset=${offset}&page_size=${pageSize}`
+  );
+  return parseJsonResponse<TeamListResponse>(response);
+}
+
+export async function getAllTeams(): Promise<Array<{ id: string; name: string }>> {
+  const all: Array<{ id: string; name: string }> = [];
+  let offset = 0;
+  const pageSize = 100;
+
+  while (true) {
+    const result = await listTeams(offset, pageSize);
+
+    for (const t of result.data) {
+      all.push({
+        id: t.id,
+        name: t.name,
+      });
+    }
+
+    if (!result.pagination.next || result.data.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  return all;
+}
+
+export async function grantPermission(
+  targetType: "assets" | "folders",
+  targetId: string,
+  accessorId: string,
+  accessorType: AccessorType,
+  accessType: AccessType
+): Promise<void> {
+  const response = await cmpFetch(`/v3/${targetType}/${targetId}/permissions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      permissions: [
+        {
+          type: accessorType,
+          access_type: accessType,
+          id: accessorId,
+        },
+      ],
+      type: accessorType,
+    }),
+  });
+
+  if (!response.ok && response.status !== 204) {
+    const body = await response.text();
+    throw new CmpApiError(
+      `Permission grant failed (${response.status})`,
+      response.status,
+      body
+    );
+  }
 }
 
 /**

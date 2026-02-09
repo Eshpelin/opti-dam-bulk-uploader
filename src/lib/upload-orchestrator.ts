@@ -14,6 +14,9 @@ let activeUploads = 0;
 // Track AbortControllers per file so uploads can be cancelled
 const abortControllers = new Map<string, AbortController>();
 
+// Deduplicate folder permission grants within a session
+const grantedFolderPermissions = new Set<string>();
+
 /**
  * Cancel an in-progress upload. Aborts all pending fetch requests for the file
  * and marks it as failed in the store.
@@ -59,6 +62,7 @@ export function stopOrchestrator() {
   isRunning = false;
   useUploadStore.getState().setIsUploading(false);
   useUploadStore.getState().setIsPaused(false);
+  grantedFolderPermissions.clear();
 }
 
 function processQueue() {
@@ -192,6 +196,52 @@ async function uploadFile(file: UploadFile) {
 
     if (!assetData.id) {
       throw new Error("Asset created but no ID returned from CMP");
+    }
+
+    // Grant permissions if an accessor is set
+    const fileState = useUploadStore.getState().files.get(file.id);
+    const accessorId = fileState?.accessorId ?? useUploadStore.getState().selectedAccessor?.id;
+    const accessorType = fileState?.accessorType ?? useUploadStore.getState().selectedAccessor?.type;
+    const accessType = fileState?.accessType ?? useUploadStore.getState().selectedAccessType;
+
+    if (accessorId && accessorType) {
+      try {
+        await fetch("/api/permissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetType: "assets",
+            targetId: assetData.id,
+            accessorId,
+            accessorType,
+            accessType,
+          }),
+          signal,
+        });
+
+        if (folderId) {
+          const folderKey = `${folderId}:${accessorId}:${accessType}`;
+          if (!grantedFolderPermissions.has(folderKey)) {
+            await fetch("/api/permissions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                targetType: "folders",
+                targetId: folderId,
+                accessorId,
+                accessorType,
+                accessType,
+              }),
+              signal,
+            });
+            grantedFolderPermissions.add(folderKey);
+          }
+        }
+
+        store.addLog("info", `Granted ${accessType} access to ${accessorType}`, file.name);
+      } catch {
+        store.addLog("warn", `Permission grant failed (asset was created successfully)`, file.name);
+      }
     }
 
     store.setFileStatus(file.id, "completed", {

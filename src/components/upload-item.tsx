@@ -10,11 +10,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { X, RotateCcw, AlertTriangle, File, Link, FolderOpen, Ban } from "lucide-react";
+import { X, RotateCcw, AlertTriangle, File, Link, FolderOpen, Ban, User, Users } from "lucide-react";
 import type { UploadFile } from "@/types";
 import { formatBytes } from "@/lib/part-size-calculator";
 import { cancelUpload } from "@/lib/upload-orchestrator";
 import { FolderSelector } from "./folder-selector";
+import { AccessorSelector } from "./accessor-selector";
+import type { AccessorType } from "@/types";
 
 const statusConfig: Record<
   UploadFile["status"],
@@ -42,12 +44,22 @@ export function UploadItem({ file }: Props) {
   const removeFile = useUploadStore((s) => s.removeFile);
   const retryFile = useUploadStore((s) => s.retryFile);
   const setFileFolderId = useUploadStore((s) => s.setFileFolderId);
+  const setFileAccessor = useUploadStore((s) => s.setFileAccessor);
+  const setFileAccessType = useUploadStore((s) => s.setFileAccessType);
   const folders = useUploadStore((s) => s.folders);
+  const users = useUploadStore((s) => s.users);
+  const teams = useUploadStore((s) => s.teams);
 
   const config = statusConfig[file.status];
   const canRemove = file.status === "queued" || file.status === "failed" || file.status === "completed";
   const canCancel = file.status === "uploading" || file.status === "completing" || file.status === "registering";
   const canRetry = file.status === "failed";
+
+  const accessorLabel = file.accessorId
+    ? file.accessorType === "team"
+      ? teams.find((t) => t.id === file.accessorId)?.name ?? "Unknown"
+      : users.find((u) => u.id === file.accessorId)?.fullName ?? "Unknown"
+    : null;
 
   return (
     <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 group">
@@ -73,20 +85,46 @@ export function UploadItem({ file }: Props) {
             {file.size > 0 ? formatBytes(file.size) : "Size unknown"}
           </span>
           {file.status === "queued" ? (
-            <FolderSelector
-              value={file.folderId}
-              onChange={(folderId) => setFileFolderId(file.id, folderId)}
-              compact
-            />
+            <>
+              <FolderSelector
+                value={file.folderId}
+                onChange={(folderId) => setFileFolderId(file.id, folderId)}
+                compact
+              />
+              <AccessorSelector
+                value={
+                  file.accessorId && file.accessorType
+                    ? { id: file.accessorId, type: file.accessorType }
+                    : null
+                }
+                onChange={(accessor) => setFileAccessor(file.id, accessor)}
+                accessType={file.accessType}
+                onAccessTypeChange={(at) => setFileAccessType(file.id, at)}
+                compact
+              />
+            </>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <FolderOpen className="h-2.5 w-2.5" />
-              <span className="max-w-[100px] truncate">
-                {file.folderId
-                  ? (folders.find((f) => f.id === file.folderId)?.breadcrumb ?? "Unknown")
-                  : "Root"}
+            <>
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                <FolderOpen className="h-2.5 w-2.5" />
+                <span className="max-w-[100px] truncate">
+                  {file.folderId
+                    ? (folders.find((f) => f.id === file.folderId)?.breadcrumb ?? "Unknown")
+                    : "Root"}
+                </span>
               </span>
-            </span>
+              {accessorLabel && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  {file.accessorType === "team" ? (
+                    <Users className="h-2.5 w-2.5" />
+                  ) : (
+                    <User className="h-2.5 w-2.5" />
+                  )}
+                  <span className="max-w-[80px] truncate">{accessorLabel}</span>
+                  <span>({file.accessType})</span>
+                </span>
+              )}
+            </>
           )}
         </div>
 

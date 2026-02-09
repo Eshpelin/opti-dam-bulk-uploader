@@ -1,6 +1,24 @@
 /** Source of the file to upload */
 export type FileSource = "local" | "url" | "path";
 
+/** CMP user from GET /v3/userlist */
+export interface CmpUser {
+  id: string;
+  fullName: string;
+}
+
+/** CMP team from GET /v3/teams */
+export interface CmpTeam {
+  id: string;
+  name: string;
+}
+
+/** Accessor type for permissions */
+export type AccessorType = "user" | "team";
+
+/** Access level for permissions */
+export type AccessType = "view" | "edit";
+
 /** Upload status state machine */
 export type UploadStatus =
   | "queued"
@@ -32,6 +50,9 @@ export interface UploadFile {
   completedAt: number | null; // Unix ms
   browserFile: File | null; // present only for drag-and-drop files
   folderId: string | null; // target CMP folder (null = root)
+  accessorId: string | null; // user or team ID for permissions
+  accessorType: AccessorType | null; // "user" or "team"
+  accessType: AccessType; // "view" or "edit"
 }
 
 /** Log entry severity */
@@ -101,6 +122,8 @@ export interface ReportRow {
   status: "success" | "failed";
   assetId: string;
   folder: string;
+  accessor: string;
+  accessType: string;
   errorMessage: string;
   completedAt: string; // ISO 8601
 }

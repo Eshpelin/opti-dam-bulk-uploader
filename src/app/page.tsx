@@ -5,6 +5,7 @@ import { useUploadStore } from "@/stores/upload-store";
 import { AuthForm } from "@/components/auth-form";
 import { UploadDashboard } from "@/components/upload-dashboard";
 import { fetchAndStoreFolders } from "@/lib/fetch-folders";
+import { fetchAndStoreUsers } from "@/lib/fetch-users";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -27,6 +28,7 @@ export default function Home() {
           setAuthenticated(true);
           addLog("info", "Session restored from server");
           fetchAndStoreFolders();
+          fetchAndStoreUsers();
         }
       } catch {
         // Backend unreachable, stay on login screen
