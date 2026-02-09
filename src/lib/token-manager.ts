@@ -1,7 +1,9 @@
 /**
  * Token Manager - Singleton for CMP OAuth token lifecycle.
  *
- * This module is designed to run in a persistent Node.js process (next start).
+ * State is stored on globalThis so it survives Turbopack HMR in development.
+ * In production (next start), globalThis persists for the process lifetime anyway.
+ *
  * Do NOT deploy to serverless platforms where each request creates a fresh instance.
  */
 
@@ -19,9 +21,19 @@ interface TokenData {
   expiresAt: number; // Unix ms
 }
 
-let credentials: StoredCredentials | null = null;
-let tokenData: TokenData | null = null;
-let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+interface TokenState {
+  credentials: StoredCredentials | null;
+  tokenData: TokenData | null;
+  refreshTimer: ReturnType<typeof setTimeout> | null;
+}
+
+// Anchor state to globalThis so Turbopack HMR module re-evaluation
+// does not wipe the token between route handler invocations.
+const g = globalThis as typeof globalThis & { __cmpTokenState?: TokenState };
+if (!g.__cmpTokenState) {
+  g.__cmpTokenState = { credentials: null, tokenData: null, refreshTimer: null };
+}
+const state = g.__cmpTokenState;
 
 async function fetchToken(
   clientId: string,
@@ -48,17 +60,17 @@ async function fetchToken(
 }
 
 function scheduleRefresh() {
-  if (refreshTimer) {
-    clearTimeout(refreshTimer);
-    refreshTimer = null;
+  if (state.refreshTimer) {
+    clearTimeout(state.refreshTimer);
+    state.refreshTimer = null;
   }
 
-  if (!tokenData || !credentials) return;
+  if (!state.tokenData || !state.credentials) return;
 
-  const msUntilExpiry = tokenData.expiresAt - Date.now();
+  const msUntilExpiry = state.tokenData.expiresAt - Date.now();
   const refreshIn = Math.max(msUntilExpiry - REFRESH_BUFFER_MS, 0);
 
-  refreshTimer = setTimeout(async () => {
+  state.refreshTimer = setTimeout(async () => {
     try {
       await refresh();
     } catch {
@@ -68,16 +80,16 @@ function scheduleRefresh() {
 }
 
 async function refresh(): Promise<void> {
-  if (!credentials) {
+  if (!state.credentials) {
     throw new Error("No credentials stored. Call authenticate() first.");
   }
 
   const result = await fetchToken(
-    credentials.clientId,
-    credentials.clientSecret
+    state.credentials.clientId,
+    state.credentials.clientSecret
   );
 
-  tokenData = {
+  state.tokenData = {
     accessToken: result.access_token,
     expiresAt: Date.now() + result.expires_in * 1000,
   };
@@ -91,8 +103,8 @@ export async function authenticate(
 ): Promise<void> {
   const result = await fetchToken(clientId, clientSecret);
 
-  credentials = { clientId, clientSecret };
-  tokenData = {
+  state.credentials = { clientId, clientSecret };
+  state.tokenData = {
     accessToken: result.access_token,
     expiresAt: Date.now() + result.expires_in * 1000,
   };
@@ -101,31 +113,31 @@ export async function authenticate(
 }
 
 export async function getToken(): Promise<string> {
-  if (!credentials) {
+  if (!state.credentials) {
     throw new Error("Not authenticated. Call authenticate() first.");
   }
 
-  if (!tokenData || Date.now() >= tokenData.expiresAt - REFRESH_BUFFER_MS) {
+  if (!state.tokenData || Date.now() >= state.tokenData.expiresAt - REFRESH_BUFFER_MS) {
     await refresh();
   }
 
-  return tokenData!.accessToken;
+  return state.tokenData!.accessToken;
 }
 
 export function isAuthenticated(): boolean {
-  return credentials !== null && tokenData !== null;
+  return state.credentials !== null && state.tokenData !== null;
 }
 
 export function getExpiresIn(): number | null {
-  if (!tokenData) return null;
-  return Math.max(0, Math.floor((tokenData.expiresAt - Date.now()) / 1000));
+  if (!state.tokenData) return null;
+  return Math.max(0, Math.floor((state.tokenData.expiresAt - Date.now()) / 1000));
 }
 
 export function disconnect(): void {
-  credentials = null;
-  tokenData = null;
-  if (refreshTimer) {
-    clearTimeout(refreshTimer);
-    refreshTimer = null;
+  state.credentials = null;
+  state.tokenData = null;
+  if (state.refreshTimer) {
+    clearTimeout(state.refreshTimer);
+    state.refreshTimer = null;
   }
 }

@@ -12,7 +12,11 @@ export async function fetchAndStoreFolders() {
 
   try {
     const response = await fetch("/api/folders");
-    if (!response.ok) return;
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      store.addLog("warn", `Folder fetch failed: ${errData.error || response.status}`);
+      return;
+    }
 
     const data = await response.json();
 
