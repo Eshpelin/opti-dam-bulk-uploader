@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { fetchAndStoreFolders } from "@/lib/fetch-folders";
 
 export function AuthForm() {
   const [clientId, setClientId] = useState("");
@@ -52,54 +53,12 @@ export function AuthForm() {
       addLog("success", "Successfully connected to Optimizely CMP");
 
       // Fetch folders in background
-      fetchFolders();
+      fetchAndStoreFolders();
     } catch (err) {
       setAuthError(
         err instanceof Error ? err.message : "Connection failed"
       );
       setAuthenticating(false);
-    }
-  };
-
-  const fetchFolders = async () => {
-    const store = useUploadStore.getState();
-    store.setFoldersLoading(true);
-    try {
-      const response = await fetch("/api/folders");
-      if (response.ok) {
-        const data = await response.json();
-        // Build breadcrumbs
-        const folderMap = new Map<string, { id: string; name: string; parentFolderId: string | null }>();
-        for (const f of data.folders) {
-          folderMap.set(f.id, f);
-        }
-
-        const foldersWithBreadcrumbs = data.folders.map(
-          (f: { id: string; name: string; parentFolderId: string | null }) => {
-            const parts: string[] = [];
-            let current: typeof f | undefined = f;
-            while (current) {
-              parts.unshift(current.name);
-              current = current.parentFolderId
-                ? folderMap.get(current.parentFolderId)
-                : undefined;
-            }
-            return {
-              id: f.id,
-              name: f.name,
-              parentFolderId: f.parentFolderId,
-              breadcrumb: parts.join(" > "),
-            };
-          }
-        );
-
-        store.setFolders(foldersWithBreadcrumbs);
-        store.addLog("info", `Loaded ${foldersWithBreadcrumbs.length} folders`);
-      }
-    } catch {
-      store.addLog("warn", "Could not load folders. You can still upload to root.");
-    } finally {
-      store.setFoldersLoading(false);
     }
   };
 
