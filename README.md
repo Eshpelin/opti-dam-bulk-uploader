@@ -1,130 +1,408 @@
 # CMP DAM Bulk Uploader
 
-A local web application for uploading files in bulk to Optimizely CMP (Content Marketing Platform) DAM. Supports very large files (up to 5 TB) through multipart upload with progress tracking, retry logic, and rate limiting.
+A local web application for uploading files in bulk to the Optimizely CMP (Content Marketing Platform) Digital Asset Manager. Built to handle everything from small images to massive video files up to 5 TB, with multipart chunked uploads, automatic retry logic, real-time progress tracking, and intelligent rate limiting.
+
+## Table of Contents
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Getting CMP API Credentials](#getting-cmp-api-credentials)
+- [Quick Start](#quick-start)
+- [Usage Guide](#usage-guide)
+- [Upload Behavior](#upload-behavior)
+- [Rate Limiting and Concurrency](#rate-limiting-and-concurrency)
+- [File Size Limits](#file-size-limits)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Scripts](#scripts)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## Features
 
-- Drag-and-drop files from your browser
-- Upload from filesystem paths (recursive directory scan)
-- Upload from URLs
-- Multipart upload for large files with chunk-level retry
-- Real-time progress bars with speed and ETA
-- Configurable parallel upload slots (1 to 12)
-- CMP folder selection with breadcrumb paths
-- Rate limiting (6 req/s, below the 8/s API limit) with 429 backoff
-- Virtualized console log (handles 50,000+ entries)
-- CSV export of upload results with Asset IDs
-- Browser tab title shows upload progress
-- Warns before closing tab during active uploads
+**Three input modes**
+- Drag-and-drop files directly from your computer
+- Paste download URLs (one per line) for remote files
+- Enter a filesystem path to recursively scan and upload an entire directory
+
+**Large file support**
+- Files under 5 MB use a fast single-request upload
+- Files 5 MB and above use multipart chunked upload with parallel chunk transfers
+- Dynamic chunk sizing that adapts to file size (up to 10,000 parts per file)
+- Maximum supported file size is 5 TB
+
+**Reliability**
+- Chunk-level retry with exponential backoff (3 attempts per chunk at 1s, 2s, 4s delays)
+- Automatic token refresh 5 minutes before expiry
+- Immediate token refresh on 401 responses
+- Browser tab warns before closing during active uploads
+
+**Progress and monitoring**
+- Per-file progress bars with upload speed and ETA
+- Configurable parallel upload slots (1 to 12) via slider
+- Virtualized console log that handles 50,000+ entries without performance loss
+- Filterable log output (All, Errors, Warnings, Info)
+- Auto-scroll with manual override and jump-to-bottom button
+
+**Results and reporting**
+- Results table with status, file size, Asset ID, and completion time for every file
+- One-click copy of Asset IDs
+- CSV export of all results for external reporting
+
+**CMP integration**
+- OAuth 2.0 Client Credentials authentication
+- Target folder selection with searchable dropdown and breadcrumb paths
+- Rate limiting at 6 requests per second (below the documented 8/s API limit)
+- Automatic 429 backoff with Retry-After header parsing
 
 ## Prerequisites
 
-- Node.js 20 or later
-- An Optimizely CMP account with API credentials (Client ID and Client Secret)
+- **Node.js 20** or later (for running locally)
+- **Docker** (optional, for containerized deployment)
+- An **Optimizely CMP account** with API access enabled
 
-### Getting CMP API Credentials
+## Getting CMP API Credentials
 
-1. Log in to your Optimizely CMP account
-2. Navigate to Settings > API Clients
-3. Create a new API client with the "Client Credentials" grant type
-4. Copy the Client ID and Client Secret
+You need a Client ID and Client Secret from your Optimizely CMP account.
+
+1. Log in to your Optimizely CMP instance
+2. Navigate to **Settings** > **API Clients**
+3. Click **Create API Client**
+4. Select the **Client Credentials** grant type
+5. Copy the **Client ID** and **Client Secret** that are generated
+
+These credentials are entered in the application's login screen. They are stored only in memory for the duration of your session and are never written to disk.
 
 ## Quick Start
 
-### Option 1. Run with Node.js
+### Option 1. Run with Node.js (recommended)
 
 ```bash
-# Clone and install
+# Clone the repository
 git clone <repository-url>
 cd cmp-dam-bulk-uploader
+
+# Install dependencies
 npm install
 
-# Build and start
+# Build the production bundle
 npm run build
+
+# Start the server
 npm start
 ```
 
-Open http://localhost:3000 in your browser.
+Open **http://localhost:3000** in your browser.
 
-### Option 2. Run with npx (after publishing)
+### Option 2. Run with the CLI command
+
+After installing globally, you get the `cmp-bulk-upload` command which starts the server and opens your browser automatically.
 
 ```bash
-npx cmp-dam-bulk-uploader
+# Install globally
+npm install -g cmp-dam-bulk-uploader
+
+# Run (opens browser automatically)
+cmp-bulk-upload
 ```
 
 ### Option 3. Run with Docker
 
 ```bash
+# Build the image
 docker build -t cmp-bulk-uploader .
+
+# Run the container
 docker run -p 3000:3000 cmp-bulk-uploader
 ```
 
-Open http://localhost:3000 in your browser.
+Open **http://localhost:3000** in your browser.
 
-### Option 4. Run with Docker and filesystem access
+### Option 4. Docker with filesystem access
 
-To upload files from local paths inside the container, mount the directory.
+When using the "From Path" input mode inside a Docker container, you need to mount the directory containing your files.
 
 ```bash
-docker run -p 3000:3000 -v /path/to/files:/data cmp-bulk-uploader
+docker run -p 3000:3000 -v /path/to/your/files:/data cmp-bulk-uploader
 ```
 
-Then use `/data` as the path prefix in the "From Path" tab.
+Then enter `/data` (or a subdirectory like `/data/photos`) as the path in the "From Path" tab.
 
-## Usage
+## Usage Guide
 
-1. Enter your CMP Client ID and Client Secret on the login screen
-2. Select a target folder from the dropdown (optional, defaults to root)
-3. Add files using one of three methods.
-   - **Drop Files** tab for drag-and-drop from your computer
-   - **From URLs** tab for pasting download URLs (one per line)
-   - **From Path** tab for scanning a local directory
-4. Adjust parallel upload slots if needed (default is 6)
-5. Click "Start Upload"
-6. Monitor progress in the upload queue and console log
-7. Download the CSV report when complete
+### Step 1. Authenticate
+
+Enter your CMP Client ID and Client Secret on the login screen and click **Connect**. The application will validate your credentials against the CMP API and fetch your folder structure.
+
+### Step 2. Select a target folder (optional)
+
+Use the folder dropdown in the top bar to choose where uploaded assets will be placed. The dropdown is searchable and shows full breadcrumb paths (e.g. "Marketing > 2026 > Q1"). If you skip this step, files upload to the root folder.
+
+### Step 3. Add files
+
+Choose one of three tabs to add files to the upload queue.
+
+**Drop Files tab.** Drag files from your file manager into the drop zone, or click to open a file picker. Files are read from the browser, so this mode works best for files that are accessible on your local machine and are not extremely large (under a few GB). For very large files, prefer the "From Path" tab.
+
+**From URLs tab.** Paste one URL per line. The application will download each URL through the backend and upload it to CMP. File sizes are probed with a HEAD request before uploading. If the file size cannot be determined, the application falls back to downloading and uploading in a single pass.
+
+**From Path tab.** Enter an absolute filesystem path (e.g. `/Users/you/assets` or `C:\Users\you\assets`). Click **Scan** to recursively discover all files in that directory. Hidden files and directories (those starting with `.`) are automatically skipped. Review the scanned file list, then click **Add to Queue**. This mode streams files directly from disk through the backend, using zero browser memory regardless of file size. Ideal for very large files.
+
+### Step 4. Configure concurrency
+
+Adjust the **Parallel uploads** slider (1 to 12) based on your connection speed and needs. The default of 6 works well for most broadband connections. Lower values dedicate more bandwidth per file. Higher values process more files simultaneously.
+
+### Step 5. Start uploading
+
+Click **Start Upload**. You can pause and resume at any time. The browser tab title updates to show progress (e.g. "Uploading 3/10...").
+
+### Step 6. Monitor progress
+
+Watch the upload queue for per-file progress bars, speeds, and ETAs. Open the console log panel to see detailed event-by-event output. Use the filter buttons to focus on errors or warnings.
+
+### Step 7. Export results
+
+Once uploads complete, the results table appears at the bottom showing every file's status, Asset ID, and any error messages. Click **Download CSV** to export the full report.
 
 ## Upload Behavior
 
-- Files smaller than 5 MB use standard single-request upload
-- Files 5 MB and larger use multipart upload with dynamic chunk sizing
-- Each chunk retries up to 3 times with exponential backoff
-- Failed files can be retried individually from the queue
-- Presigned URLs expire after 60 minutes. Very large files that exceed this window will show a warning
+### Standard upload (files under 5 MB)
+
+1. The backend requests a presigned upload URL from CMP (`GET /v3/upload-url`)
+2. The response includes ordered metadata fields that must be sent with the upload
+3. A `multipart/form-data` POST is sent to the presigned S3 URL with metadata fields in order, followed by the file as the last field
+4. The upload key is returned immediately in the initial response
+
+### Multipart upload (files 5 MB and above)
+
+1. The backend initiates a multipart upload (`POST /v3/multipart-uploads`) with the file size and calculated part size
+2. CMP returns an array of presigned URLs, one per chunk
+3. Chunks are uploaded in parallel (distributed across available concurrency slots) via `PUT` to each presigned URL
+4. Failed chunks automatically retry up to 3 times with exponential backoff (1s, 2s, 4s)
+5. After all chunks succeed, the backend completes the upload (`POST /v3/multipart-uploads/{id}/complete`)
+6. The application polls for server-side processing completion (`GET /v3/multipart-uploads/{id}/status`) every 2 seconds
+7. Once status is `UPLOAD_COMPLETION_SUCCEEDED`, the upload key is extracted
+
+### Asset registration (both paths)
+
+After obtaining the upload key, the application registers the file as a CMP asset (`POST /v3/assets`) with the filename as the title and the selected folder as the destination. The returned Asset ID is displayed in the results table.
+
+### Retry behavior
+
+| Scope | Strategy | Details |
+|-------|----------|---------|
+| Individual chunk | Automatic, 3 attempts | Exponential backoff at 1s, 2s, 4s |
+| Entire file (under 100 MB) | Automatic, 1 retry | Re-queues the file on failure |
+| Entire file (over 100 MB) | Manual | Click the retry button in the queue |
+| API rate limit (429) | Automatic, 5 attempts | Respects Retry-After header, adds jitter |
+
+## Rate Limiting and Concurrency
+
+The application enforces rate limits to stay safely below CMP's documented 8 requests/second API limit.
+
+- **CMP API calls** are rate-limited to 6 requests per second using a token bucket algorithm
+- **S3 presigned URL uploads** (chunk PUTs and standard upload POSTs) are NOT rate-limited since they go directly to S3
+- When a 429 response is received, the application reads the `Retry-After` header, applies exponential backoff with random jitter (0 to 500ms), and retries up to 5 times
+- Maximum backoff delay is capped at 60 seconds
+
+**Concurrency distribution.** The parallel slots setting controls how upload connections are distributed.
+
+| Active files | Behavior |
+|-------------|----------|
+| 1 file | 1 file with all slots as parallel chunks |
+| 2 to 3 files | Slots distributed evenly across files |
+| 4+ files | Each file gets 1 chunk at a time, up to the slot limit |
+
+## File Size Limits
+
+| Parameter | Value |
+|-----------|-------|
+| Standard upload threshold | Under 5 MB |
+| Multipart upload threshold | 5 MB and above |
+| Minimum chunk size | 5 MB |
+| Maximum chunk size | 5 GB |
+| Maximum chunks per file | 10,000 |
+| Maximum file size | 5 TB |
+| Presigned URL expiry | 60 minutes |
+
+The application calculates chunk sizes dynamically based on file size to stay within the 10,000 part limit while minimizing the number of requests. If the estimated upload duration exceeds 55 minutes (allowing a 5 minute buffer before the 60 minute URL expiry), a warning is shown in the console log.
 
 ## Configuration
 
-Environment variables.
+The application accepts the following environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| PORT | 3000 | Server port |
-| HOST | localhost | Server hostname |
+| `PORT` | `3000` | Port the server listens on |
+| `HOST` | `localhost` | Hostname the server binds to |
+
+Examples.
+
+```bash
+# Run on a different port
+PORT=8080 npm start
+
+# Run on all network interfaces (accessible from other machines)
+HOST=0.0.0.0 PORT=8080 npm start
+
+# Docker with custom port
+docker run -p 8080:8080 -e PORT=8080 cmp-bulk-uploader
+```
 
 ## Architecture
 
-The application is a Next.js app that runs entirely on your local machine. All CMP API calls go through the Next.js backend because the CMP token endpoint blocks browser CORS requests.
+The application runs entirely on your local machine as a Next.js web application. It consists of two layers.
 
-The browser handles UI, queue management, and orchestration. The backend handles authentication, presigned URL generation, chunk proxying for browser uploads, and direct filesystem/URL streaming for path and URL based uploads.
+**Browser (frontend).** Handles the user interface, upload queue management, orchestration logic, and progress tracking. Built with React 19, Zustand for state management, and shadcn/ui for components.
 
-See ARCHITECTURE.md for detailed design decisions.
+**Node.js server (backend).** Proxies all CMP API calls because the CMP token endpoint (`accounts.cmp.optimizely.com`) blocks browser CORS requests. Also handles token management, rate limiting, filesystem access for path-based uploads, and URL downloading for URL-based uploads.
+
+### Why a backend proxy?
+
+The Optimizely CMP token endpoint does not include CORS headers in its responses, which means browsers will block the authentication request. Rather than requiring a separate proxy server, this application embeds the proxy as Next.js API routes. All CMP API communication flows through the backend, and the browser acts purely as a UI and orchestration layer.
+
+### Backend API routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/auth` | POST | Authenticate with CMP using client credentials |
+| `/api/auth` | GET | Check current authentication status |
+| `/api/auth` | DELETE | Disconnect and clear stored token |
+| `/api/folders` | GET | Fetch all CMP folders (paginated) |
+| `/api/upload-url` | GET | Get presigned URL for standard upload |
+| `/api/upload-standard` | POST | Complete standard upload for files under 5 MB |
+| `/api/upload-chunk` | POST | Proxy a single chunk upload to S3 |
+| `/api/upload-from-path` | POST | Stream file from filesystem, upload chunks via SSE |
+| `/api/upload-from-url` | POST | Download URL, upload chunks via SSE |
+| `/api/multipart-uploads` | POST | Initiate multipart upload |
+| `/api/multipart-uploads/[id]/complete` | POST | Complete multipart upload |
+| `/api/multipart-uploads/[id]/status` | GET | Poll multipart upload completion status |
+| `/api/assets` | POST | Register uploaded file as CMP asset |
+| `/api/scan-directory` | POST | Recursively scan a filesystem directory |
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for all 20 design decisions and their rationale.
+
+## Project Structure
+
+```
+cmp-dam-bulk-uploader/
+├── bin/
+│   └── cli.js                    # CLI entry point for global install
+├── public/                       # Static assets
+├── src/
+│   ├── app/
+│   │   ├── api/                  # Next.js API routes (backend proxy)
+│   │   │   ├── auth/
+│   │   │   ├── assets/
+│   │   │   ├── folders/
+│   │   │   ├── multipart-uploads/
+│   │   │   ├── scan-directory/
+│   │   │   ├── upload-chunk/
+│   │   │   ├── upload-from-path/
+│   │   │   ├── upload-from-url/
+│   │   │   ├── upload-standard/
+│   │   │   └── upload-url/
+│   │   ├── layout.tsx            # Root layout with Toaster
+│   │   ├── page.tsx              # Auth gate (shows login or dashboard)
+│   │   └── globals.css
+│   ├── components/
+│   │   ├── ui/                   # shadcn/ui primitives
+│   │   ├── auth-form.tsx         # Login screen
+│   │   ├── console-log.tsx       # Virtualized log panel
+│   │   ├── drop-zone.tsx         # Drag-and-drop file input
+│   │   ├── folder-selector.tsx   # Searchable folder dropdown
+│   │   ├── path-input.tsx        # Filesystem path scanner
+│   │   ├── results-table.tsx     # Results with CSV export
+│   │   ├── upload-dashboard.tsx  # Main dashboard layout
+│   │   ├── upload-item.tsx       # Single file row with progress
+│   │   ├── upload-queue.tsx      # Queue with controls and stats
+│   │   └── url-input.tsx         # URL paste input
+│   ├── hooks/
+│   │   └── use-beforeunload.ts   # Browser close warning
+│   ├── lib/
+│   │   ├── cmp-client.ts         # CMP API wrapper (all endpoints)
+│   │   ├── part-size-calculator.ts # Chunk sizing and estimation
+│   │   ├── rate-limiter.ts       # Token bucket rate limiter
+│   │   ├── token-manager.ts      # OAuth token lifecycle
+│   │   ├── upload-orchestrator.ts # Queue processor and chunk engine
+│   │   └── utils.ts              # shadcn/ui utility
+│   ├── stores/
+│   │   └── upload-store.ts       # Zustand state (files, logs, auth)
+│   └── types/
+│       └── index.ts              # All TypeScript interfaces
+├── ARCHITECTURE.md               # 20 design decisions
+├── Dockerfile                    # Multi-stage Docker build
+├── .dockerignore
+├── next.config.ts
+├── package.json
+└── tsconfig.json
+```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start the development server with hot reload |
+| `npm run build` | Create a standalone production build |
+| `npm start` | Run the production server |
+| `npm run lint` | Run ESLint checks |
 
 ## Troubleshooting
 
-**"Token endpoint BLOCKS browser CORS" or network errors on login**
-This is expected. All API calls go through the backend proxy. Make sure the Next.js server is running.
+**Network errors or CORS errors on login**
 
-**Upload stalls or times out**
-Presigned URLs expire after 60 minutes. For extremely large files on slow connections, the upload may fail. Try reducing the number of parallel slots to dedicate more bandwidth per file.
+This is expected behavior. The CMP token endpoint blocks browser CORS, so all API calls must go through the backend proxy. Make sure the Next.js server is running and you are accessing the application through `http://localhost:3000` (not opening the HTML file directly).
 
-**429 Too Many Requests**
-The app automatically handles rate limiting with exponential backoff. If you see frequent 429 errors in the console, reduce parallel slots.
+**Upload stalls or times out after a long time**
+
+Presigned URLs from CMP expire after 60 minutes. For extremely large files on slow connections, the upload may not complete within this window. Try these steps.
+- Reduce the parallel slots setting to dedicate more bandwidth to each file
+- Upload during off-peak hours for better network throughput
+- The console log will show a warning if the estimated duration exceeds 55 minutes
+
+**Frequent 429 errors in the console**
+
+The application handles 429 (Too Many Requests) responses automatically with exponential backoff. If you see many of these, reduce the parallel slots slider. The built-in rate limiter stays at 6 requests per second, but many parallel chunk uploads to S3 may trigger CMP-side throttling during the initiation and completion phases.
 
 **Port 3000 is already in use**
-Set a different port. `PORT=3001 npm start`
 
-**Docker: Cannot access filesystem paths**
-Mount the directory containing your files. See the Docker with filesystem access section above.
+Run on a different port.
+
+```bash
+PORT=3001 npm start
+```
+
+**Cannot access filesystem paths in Docker**
+
+The Docker container has its own filesystem. Mount your local directory to make files accessible.
+
+```bash
+docker run -p 3000:3000 -v /your/local/path:/data cmp-bulk-uploader
+```
+
+Then enter `/data` as the path in the "From Path" tab.
+
+**"Build output not found" when running cmp-bulk-upload**
+
+You need to build the application before the CLI command will work.
+
+```bash
+npm run build
+cmp-bulk-upload
+```
+
+**Files from "From Path" mode show 0 bytes or fail immediately**
+
+Make sure the Node.js server process has read permission for the files. On macOS, you may need to grant Terminal or your IDE full disk access in System Settings > Privacy & Security > Full Disk Access.
+
+**Token expires during a long upload session**
+
+The application automatically refreshes the OAuth token 5 minutes before expiry. If the token endpoint is temporarily unreachable, the refresh will fail and subsequent API calls will return 401 errors. The application will attempt one immediate token refresh on 401 responses. If your session has been idle for a very long time, disconnect and reconnect with your credentials.
+
+**CSV report is missing some files**
+
+The CSV export only includes files with a final status of "completed" or "failed". Files that are still queued, uploading, or in a completing/registering state will not appear in the export until they reach a terminal state.
 
 ## License
 
