@@ -55,7 +55,13 @@ export async function POST(request: NextRequest) {
               start,
               end: end - 1,
             });
-            readStream.on("data", (data: Buffer) => chunks.push(data));
+            readStream.on("data", (data: Buffer | string) => {
+              if (Buffer.isBuffer(data)) {
+                chunks.push(data);
+              } else {
+                chunks.push(Buffer.from(data));
+              }
+            });
             readStream.on("end", resolve);
             readStream.on("error", reject);
           });

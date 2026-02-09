@@ -245,7 +245,11 @@ export async function standardUpload(
     formData.append(field.name, field.value);
   }
 
-  const fileBlob = new Blob([fileBuffer]);
+  const arrayBuf = fileBuffer.buffer.slice(
+    fileBuffer.byteOffset,
+    fileBuffer.byteOffset + fileBuffer.byteLength
+  ) as ArrayBuffer;
+  const fileBlob = new Blob([arrayBuf]);
   formData.append("file", fileBlob, fileName);
 
   // POST to the presigned URL (this goes to S3, not CMP API)
@@ -276,7 +280,12 @@ export async function uploadChunkToS3(
   chunkData: Buffer | Uint8Array
 ): Promise<void> {
   // Wrap in a Blob with no type to prevent Content-Type header
-  const blob = new Blob([chunkData]);
+  // .slice() returns a plain ArrayBuffer, avoiding SharedArrayBuffer type incompatibility
+  const arrayBuffer = chunkData.buffer.slice(
+    chunkData.byteOffset,
+    chunkData.byteOffset + chunkData.byteLength
+  ) as ArrayBuffer;
+  const blob = new Blob([arrayBuffer]);
 
   const response = await fetch(presignedUrl, {
     method: "PUT",
