@@ -13,7 +13,6 @@ import {
 import { Play, Pause, Trash2 } from "lucide-react";
 import { formatBytes } from "@/lib/part-size-calculator";
 import { AccessorSelector } from "./accessor-selector";
-import type { AccessType } from "@/types";
 
 export function UploadQueue() {
   const fileOrder = useUploadStore((s) => s.fileOrder);
@@ -23,6 +22,7 @@ export function UploadQueue() {
   const maxParallelSlots = useUploadStore((s) => s.maxParallelSlots);
   const setMaxParallelSlots = useUploadStore((s) => s.setMaxParallelSlots);
   const clearCompleted = useUploadStore((s) => s.clearCompleted);
+  const selectedAccessor = useUploadStore((s) => s.selectedAccessor);
   const selectedAccessType = useUploadStore((s) => s.selectedAccessType);
   const setSelectedAccessType = useUploadStore((s) => s.setSelectedAccessType);
 
@@ -149,7 +149,7 @@ export function UploadQueue() {
       {/* Default accessor */}
       <div className="flex items-center gap-3">
         <AccessorSelector />
-        {useUploadStore.getState().selectedAccessor && (
+        {selectedAccessor && (
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-muted-foreground">Default access:</span>
             <div className="flex items-center gap-0.5">

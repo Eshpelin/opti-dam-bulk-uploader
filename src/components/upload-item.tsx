@@ -16,7 +16,6 @@ import { formatBytes } from "@/lib/part-size-calculator";
 import { cancelUpload } from "@/lib/upload-orchestrator";
 import { FolderSelector } from "./folder-selector";
 import { AccessorSelector } from "./accessor-selector";
-import type { AccessorType } from "@/types";
 
 const statusConfig: Record<
   UploadFile["status"],
