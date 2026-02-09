@@ -169,22 +169,24 @@ export async function createAsset(
 interface FolderApiItem {
   id: string;
   name: string;
-  parent_folder_id?: string | null;
+  parent_folder_id: string | null;
+  path: string;
 }
 
 interface FolderListResponse {
   data: FolderApiItem[];
-  page: number;
-  page_size: number;
-  total: number;
+  pagination: {
+    next: string | null;
+    previous: string | null;
+  };
 }
 
 export async function listFolders(
-  page: number = 1,
+  offset: number = 0,
   pageSize: number = 100
 ): Promise<FolderListResponse> {
   const response = await cmpFetch(
-    `/v3/folders?page=${page}&page_size=${pageSize}`
+    `/v3/folders?offset=${offset}&page_size=${pageSize}`
   );
   return parseJsonResponse<FolderListResponse>(response);
 }
@@ -197,11 +199,11 @@ export interface FlatFolder {
 
 export async function getAllFolders(): Promise<FlatFolder[]> {
   const all: FlatFolder[] = [];
-  let page = 1;
+  let offset = 0;
   const pageSize = 100;
 
   while (true) {
-    const result = await listFolders(page, pageSize);
+    const result = await listFolders(offset, pageSize);
 
     for (const f of result.data) {
       all.push({
@@ -211,11 +213,12 @@ export async function getAllFolders(): Promise<FlatFolder[]> {
       });
     }
 
-    if (all.length >= result.total || result.data.length < pageSize) {
+    // If there's no next page, we're done
+    if (!result.pagination.next || result.data.length < pageSize) {
       break;
     }
 
-    page++;
+    offset += pageSize;
   }
 
   return all;
@@ -241,8 +244,10 @@ export async function standardUpload(
 
   const formData = new FormData();
 
-  for (const field of uploadData.upload_meta_fields) {
-    formData.append(field.name, field.value);
+  // upload_meta_fields is an object (not array). Append each key-value pair in order, file last.
+  const metaFields = uploadData.upload_meta_fields;
+  for (const [fieldName, fieldValue] of Object.entries(metaFields)) {
+    formData.append(fieldName, fieldValue);
   }
 
   const arrayBuf = fileBuffer.buffer.slice(
@@ -268,7 +273,8 @@ export async function standardUpload(
     );
   }
 
-  return uploadData.key;
+  // The key is inside upload_meta_fields, not a separate top-level field
+  return metaFields.key;
 }
 
 /**

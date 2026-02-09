@@ -56,8 +56,7 @@ export interface CmpFolder {
 /** Response from GET /v3/upload-url */
 export interface UploadUrlResponse {
   url: string;
-  key: string;
-  upload_meta_fields: Array<{ name: string; value: string }>;
+  upload_meta_fields: Record<string, string>;
 }
 
 /** Response from POST /v3/multipart-uploads */
