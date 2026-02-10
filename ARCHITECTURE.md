@@ -2,8 +2,7 @@
 
 ## Firm Decisions (All 20 review items resolved)
 
-### Decision 1: Upload routing - Backend-proxied everything
-CORS test confirmed: Optimizely token endpoint blocks browser CORS.
+### Decision 1: Upload routing - Backend handles all API communication
 All uploads route through the Next.js backend. The backend handles all CMP API
 calls AND S3 presigned URL uploads. The browser is purely a UI/control panel.
 
