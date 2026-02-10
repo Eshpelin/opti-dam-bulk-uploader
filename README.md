@@ -95,8 +95,8 @@ These credentials are entered in the application's login screen. They are stored
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd cmp-dam-bulk-uploader
+git clone https://github.com/Eshpelin/opti-dam-bulk-uploader.git
+cd opti-dam-bulk-uploader
 
 # Install dependencies
 npm install
