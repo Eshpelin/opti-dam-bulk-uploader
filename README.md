@@ -296,8 +296,6 @@ The application runs entirely on your local machine as a Next.js web application
 | `/api/teams` | GET | Fetch all CMP teams (paginated) |
 | `/api/scan-directory` | POST | Recursively scan a filesystem directory |
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for all 20 design decisions and their rationale.
-
 ## Project Structure
 
 ```
@@ -355,7 +353,6 @@ opti-dam-bulk-uploader/
 │   │   └── upload-store.ts       # Zustand state (files, logs, auth)
 │   └── types/
 │       └── index.ts              # All TypeScript interfaces
-├── ARCHITECTURE.md               # 20 design decisions
 ├── Dockerfile                    # Multi-stage Docker build
 ├── .dockerignore
 ├── next.config.ts
