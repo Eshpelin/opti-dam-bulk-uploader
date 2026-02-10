@@ -15,7 +15,7 @@ if (!fs.existsSync(standaloneServer)) {
   process.exit(1);
 }
 
-console.log(`Starting CMP DAM Bulk Uploader on http://${HOST}:${PORT}`);
+console.log(`Starting Optimizely CMP DAM Bulk Uploader on http://${HOST}:${PORT}`);
 
 // Start the Next.js standalone server
 const server = spawn(process.execPath, [standaloneServer], {

@@ -34,7 +34,7 @@ export function UploadDashboard() {
       {/* Top bar */}
       <div className="border-b px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold">CMP DAM Bulk Uploader</h1>
+          <h1 className="text-sm font-semibold">Optimizely CMP DAM Bulk Uploader</h1>
           <Badge variant="outline" className="text-xs text-green-600 border-green-600">
             Connected
           </Badge>

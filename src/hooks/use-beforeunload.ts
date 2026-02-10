@@ -38,11 +38,11 @@ export function useBeforeUnload() {
     if (hasActiveUploads) {
       document.title = `Uploading ${completedCount}/${totalCount}... | CMP Bulk Uploader`;
     } else if (totalCount > 0 && completedCount === totalCount) {
-      document.title = "Complete | CMP Bulk Uploader";
+      document.title = "Complete | Optimizely CMP DAM Bulk Uploader";
     } else if (isAuthenticated) {
-      document.title = "CMP DAM Bulk Uploader";
+      document.title = "Optimizely CMP DAM Bulk Uploader";
     } else {
-      document.title = "CMP DAM Bulk Uploader";
+      document.title = "Optimizely CMP DAM Bulk Uploader";
     }
 
     // beforeunload handler

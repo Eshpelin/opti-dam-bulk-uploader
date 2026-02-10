@@ -1,10 +1,10 @@
-# CMP DAM Bulk Uploader
+# Optimizely CMP DAM Bulk Uploader
 
 > **Not an official Optimizely product.** This is an independent tool, entirely vibe coded with love using [Claude Code](https://claude.ai/claude-code). Use at your own discretion.
 
 A local web application for uploading files in bulk to the Optimizely CMP (Content Marketing Platform) Digital Asset Manager. Built to handle everything from small images to massive video files up to 5 TB, with multipart chunked uploads, automatic retry logic, real-time progress tracking, and intelligent rate limiting.
 
-![CMP DAM Bulk Uploader](docs/screenshot.png)
+![Optimizely CMP DAM Bulk Uploader](docs/screenshot.png)
 
 ## Table of Contents
 
@@ -112,24 +112,24 @@ Open **http://localhost:3000** in your browser.
 
 ### Option 2. Run with the CLI command
 
-After installing globally, you get the `cmp-bulk-upload` command which starts the server and opens your browser automatically.
+After installing globally, you get the `opti-bulk-upload` command which starts the server and opens your browser automatically.
 
 ```bash
 # Install globally
-npm install -g cmp-dam-bulk-uploader
+npm install -g opti-dam-bulk-uploader
 
 # Run (opens browser automatically)
-cmp-bulk-upload
+opti-bulk-upload
 ```
 
 ### Option 3. Run with Docker
 
 ```bash
 # Build the image
-docker build -t cmp-bulk-uploader .
+docker build -t opti-bulk-uploader .
 
 # Run the container
-docker run -p 3000:3000 cmp-bulk-uploader
+docker run -p 3000:3000 opti-bulk-uploader
 ```
 
 Open **http://localhost:3000** in your browser.
@@ -139,7 +139,7 @@ Open **http://localhost:3000** in your browser.
 When using the "From Path" input mode inside a Docker container, you need to mount the directory containing your files.
 
 ```bash
-docker run -p 3000:3000 -v /path/to/your/files:/data cmp-bulk-uploader
+docker run -p 3000:3000 -v /path/to/your/files:/data opti-bulk-uploader
 ```
 
 Then enter `/data` (or a subdirectory like `/data/photos`) as the path in the "From Path" tab.
@@ -262,7 +262,7 @@ PORT=8080 npm start
 HOST=0.0.0.0 PORT=8080 npm start
 
 # Docker with custom port
-docker run -p 8080:8080 -e PORT=8080 cmp-bulk-uploader
+docker run -p 8080:8080 -e PORT=8080 opti-bulk-uploader
 ```
 
 ## Architecture
@@ -305,7 +305,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for all 20 design decisions and their r
 ## Project Structure
 
 ```
-cmp-dam-bulk-uploader/
+opti-dam-bulk-uploader/
 ├── bin/
 │   └── cli.js                    # CLI entry point for global install
 ├── docs/
@@ -406,18 +406,18 @@ PORT=3001 npm start
 The Docker container has its own filesystem. Mount your local directory to make files accessible.
 
 ```bash
-docker run -p 3000:3000 -v /your/local/path:/data cmp-bulk-uploader
+docker run -p 3000:3000 -v /your/local/path:/data opti-bulk-uploader
 ```
 
 Then enter `/data` as the path in the "From Path" tab.
 
-**"Build output not found" when running cmp-bulk-upload**
+**"Build output not found" when running opti-bulk-upload**
 
 You need to build the application before the CLI command will work.
 
 ```bash
 npm run build
-cmp-bulk-upload
+opti-bulk-upload
 ```
 
 **Files from "From Path" mode show 0 bytes or fail immediately**

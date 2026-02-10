@@ -68,7 +68,7 @@ export function AuthForm() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">CMP DAM Bulk Uploader</CardTitle>
+          <CardTitle className="text-2xl">Optimizely CMP DAM Bulk Uploader</CardTitle>
           <CardDescription>
             Upload files in bulk to Optimizely CMP
           </CardDescription>

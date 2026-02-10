@@ -1,9 +1,9 @@
 {
-  "name": "cmp-dam-bulk-uploader",
+  "name": "opti-dam-bulk-uploader",
   "version": "1.0.0",
   "description": "Bulk upload files to Optimizely CMP DAM with multipart support for large files",
   "bin": {
-    "cmp-bulk-upload": "./bin/cli.js"
+    "opti-bulk-upload": "./bin/cli.js"
   },
   "files": [
     "bin/",

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CMP DAM Bulk Uploader",
+  title: "Optimizely CMP DAM Bulk Uploader",
   description: "Upload files in bulk to Optimizely CMP",
 };
 

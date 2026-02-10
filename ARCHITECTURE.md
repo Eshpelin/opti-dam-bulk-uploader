@@ -1,4 +1,4 @@
-# CMP DAM Bulk Uploader - Architecture Decisions
+# Optimizely CMP DAM Bulk Uploader - Architecture Decisions
 
 ## Firm Decisions (All 20 review items resolved)
 
