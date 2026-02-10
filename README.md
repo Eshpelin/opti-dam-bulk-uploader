@@ -271,11 +271,7 @@ The application runs entirely on your local machine as a Next.js web application
 
 **Browser (frontend).** Handles the user interface, upload queue management, orchestration logic, and progress tracking. Built with React 19, Zustand for state management, and shadcn/ui for components.
 
-**Node.js server (backend).** Proxies all CMP API calls because the CMP token endpoint (`accounts.cmp.optimizely.com`) blocks browser CORS requests. Also handles token management, rate limiting, filesystem access for path-based uploads, and URL downloading for URL-based uploads.
-
-### Why a backend proxy?
-
-The Optimizely CMP token endpoint does not include CORS headers in its responses, which means browsers will block the authentication request. Rather than requiring a separate proxy server, this application embeds the proxy as Next.js API routes. All CMP API communication flows through the backend, and the browser acts purely as a UI and orchestration layer.
+**Node.js server (backend).** Communicates with the public Optimizely CMP API using standard OAuth 2.0 Client Credentials. The backend handles token management, rate limiting, filesystem access for path-based uploads, URL downloading for URL-based uploads, and safe streaming of large files that would be impractical to handle in a browser alone.
 
 ### Backend API routes
 
@@ -288,7 +284,7 @@ The Optimizely CMP token endpoint does not include CORS headers in its responses
 | `/api/folders` | POST | Create a new CMP folder |
 | `/api/upload-url` | GET | Get presigned URL for standard upload |
 | `/api/upload-standard` | POST | Complete standard upload for files under 5 MB |
-| `/api/upload-chunk` | POST | Proxy a single chunk upload to S3 |
+| `/api/upload-chunk` | POST | Upload a single chunk to S3 |
 | `/api/upload-from-path` | POST | Stream file from filesystem, upload chunks via SSE |
 | `/api/upload-from-url` | POST | Download URL, upload chunks via SSE |
 | `/api/multipart-uploads` | POST | Initiate multipart upload |
@@ -313,7 +309,7 @@ opti-dam-bulk-uploader/
 ├── public/                       # Static assets
 ├── src/
 │   ├── app/
-│   │   ├── api/                  # Next.js API routes (backend proxy)
+│   │   ├── api/                  # Next.js API routes (backend)
 │   │   │   ├── auth/
 │   │   │   ├── assets/
 │   │   │   ├── folders/          # GET list, POST create
@@ -378,9 +374,9 @@ opti-dam-bulk-uploader/
 
 ## Troubleshooting
 
-**Network errors or CORS errors on login**
+**Network errors on login**
 
-This is expected behavior. The CMP token endpoint blocks browser CORS, so all API calls must go through the backend proxy. Make sure the Next.js server is running and you are accessing the application through `http://localhost:3000` (not opening the HTML file directly).
+Make sure the Next.js server is running and you are accessing the application through `http://localhost:3000` (not opening the HTML file directly). The backend must be reachable for API calls to work.
 
 **Upload stalls or times out after a long time**
 
